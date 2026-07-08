@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm /root/tennis-sim/AGENTS.md /root/tennis-sim/CLAUDE.md /root/tennis-sim/hyperframes.json /root/tennis-sim/index.html /root/tennis-sim/meta.json /root/tennis-sim/package.json)"
+    ]
+  }
+}
