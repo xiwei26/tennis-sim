@@ -16,10 +16,34 @@
       background: rgba(0,0,0,0.4); padding: 8px 16px; border-radius: 6px;
       pointer-events: none;
     }
+    #room-invite {
+      position: absolute; top: 18px; left: 18px; z-index: 30;
+      display: flex; align-items: center; gap: 10px;
+      color: #fff; font-family: 'Segoe UI', -apple-system, sans-serif;
+      background: rgba(0,0,0,0.58); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px; padding: 9px 12px; pointer-events: none;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+    }
+    #room-invite[hidden] { display: none; }
+    #room-invite .label {
+      color: rgba(255,255,255,0.62); font-size: 12px; letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    #room-code-badge {
+      color: #D4E157; font: 700 20px 'Courier New', monospace; letter-spacing: 3px;
+    }
+    @media (max-width: 520px) {
+      #room-invite { top: 116px; left: 50%; transform: translateX(-50%); padding: 8px 10px; }
+      #room-code-badge { font-size: 17px; letter-spacing: 2px; }
+    }
   </style>
 </head>
 <body>
   <div id="game-container"></div>
+  <div id="room-invite" hidden>
+    <span class="label">Invite Code</span>
+    <span id="room-code-badge"></span>
+  </div>
   <div id="controls-help">Move: WASD / Arrow Keys &nbsp;|&nbsp; J=Flat K=Topspin L=Slice U=Volley</div>
 
   <script src="input.js"></script>
@@ -30,10 +54,14 @@
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
     const serverUrl = params.get('server') || 'ws://138.2.47.126:5000';
+    const roomInvite = document.getElementById('room-invite');
+    const roomCodeBadge = document.getElementById('room-code-badge');
 
     if (!roomId) {
       document.body.innerHTML = '<div style="color:#fff;padding:40px;font-size:24px">Error: No room ID provided. Go back and join a room.</div>';
     } else {
+      roomCodeBadge.textContent = roomId;
+      roomInvite.hidden = false;
       const app = new GameApp();
       app.start(serverUrl, roomId);
     }

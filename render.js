@@ -142,17 +142,23 @@ class Renderer3D {
     this.container.appendChild(div);
     this.scoreDisplay = div;
 
+    const labels = document.createElement('div');
+    labels.id = 'player-labels';
+    labels.style.cssText = `position:absolute;top:70px;left:50%;transform:translateX(-50%);
+      display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px 28px;
+      width:min(680px,calc(100% - 32px));font-size:14px;line-height:1.2;z-index:10;
+      pointer-events:none;`;
+    this.container.appendChild(labels);
+
     const p1 = document.createElement('div');
-    p1.style.cssText = `position:absolute;top:70px;left:50%;transform:translateX(-120px);
-      color:#E53935;font-size:14px;z-index:10;`;
+    p1.style.cssText = `color:#E53935;white-space:nowrap;text-align:center;`;
     p1.textContent = 'PLAYER 1 (WASD + J/K/L/U)';
-    this.container.appendChild(p1);
+    labels.appendChild(p1);
 
     const p2 = document.createElement('div');
-    p2.style.cssText = `position:absolute;top:70px;left:50%;transform:translateX(20px);
-      color:#1E88E5;font-size:14px;z-index:10;`;
+    p2.style.cssText = `color:#1E88E5;white-space:nowrap;text-align:center;`;
     p2.textContent = 'PLAYER 2 (ARROWS + J/K/L/U)';
-    this.container.appendChild(p2);
+    labels.appendChild(p2);
   }
 
   _createMessageOverlay() {

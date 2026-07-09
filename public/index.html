@@ -42,7 +42,7 @@
       display: flex; gap: 12px; margin-bottom: 16px;
     }
     .input-group input {
-      flex: 1; padding: 16px; border: 2px solid rgba(255,255,255,0.2);
+      flex: 1; min-width: 0; padding: 16px; border: 2px solid rgba(255,255,255,0.2);
       border-radius: 12px; background: rgba(255,255,255,0.06);
       color: #fff; font-size: 18px; text-align: center;
       text-transform: uppercase; letter-spacing: 6px; outline: none;
@@ -52,7 +52,7 @@
     .input-group input::placeholder {
       text-transform: none; letter-spacing: 1px; color: rgba(255,255,255,0.3);
     }
-    .input-group .btn { width: auto; padding: 16px 24px; margin-bottom: 0; }
+    .input-group .btn { flex: 0 0 auto; width: auto; padding: 16px 24px; margin-bottom: 0; white-space: nowrap; }
     .room-code {
       background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px;
       margin: 16px 0; display: none;
@@ -72,6 +72,11 @@
     .controls-info kbd {
       background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;
       font-family: 'Courier New', monospace; font-size: 12px;
+    }
+    @media (max-width: 520px) {
+      .container { padding: 32px 20px; }
+      .input-group { flex-direction: column; }
+      .input-group .btn { width: 100%; }
     }
   </style>
 </head>
