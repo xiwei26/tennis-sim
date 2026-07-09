@@ -112,7 +112,10 @@
 
   <script>
     const serverIP = '138.2.47.126';
-    const serverApi = `http://${serverIP}:5000`;
+    const serverOrigin = `http://${serverIP}:5000`;
+    const localServerHosts = new Set([`${serverIP}:5000`, 'localhost:5000', '127.0.0.1:5000']);
+    const serverApi = localServerHosts.has(window.location.host) ? window.location.origin : serverOrigin;
+    const isSecureStaticPage = window.location.protocol === 'https:' && serverApi.startsWith('http:');
 
     let currentRoomId = null;
     let ws = null;
@@ -133,7 +136,21 @@
       statusMsg.className = 'status';
     }
 
+    function continueOnGameServer(params = {}) {
+      const url = new URL(serverOrigin + '/');
+      for (const [key, value] of Object.entries(params)) {
+        if (value) url.searchParams.set(key, value);
+      }
+      window.location.href = url.toString();
+    }
+
     createBtn.addEventListener('click', async () => {
+      if (isSecureStaticPage) {
+        showStatus('Opening game server...', 'info');
+        continueOnGameServer({ action: 'create' });
+        return;
+      }
+
       createBtn.disabled = true;
       createBtn.textContent = 'Creating...';
       hideStatus();
@@ -162,6 +179,12 @@
       }
       hideStatus();
 
+      if (isSecureStaticPage) {
+        showStatus('Opening game server...', 'info');
+        continueOnGameServer({ action: 'join', room: code });
+        return;
+      }
+
       fetch(serverApi + '/api/rooms/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -180,6 +203,17 @@
     function connectAndJoin(roomId) {
       showStatus('Connecting...', 'info');
       window.location.href = `/game.html?room=${roomId}`;
+    }
+
+    const startupParams = new URLSearchParams(window.location.search);
+    const startupAction = startupParams.get('action');
+    const startupRoom = startupParams.get('room');
+    if (!isSecureStaticPage) {
+      if (startupAction === 'create') createBtn.click();
+      if (startupAction === 'join' && startupRoom) {
+        roomInput.value = startupRoom;
+        joinBtn.click();
+      }
     }
   </script>
 </body>

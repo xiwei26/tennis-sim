@@ -53,7 +53,12 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
-    const serverUrl = params.get('server') || 'ws://138.2.47.126:5000';
+    const serverOrigin = 'http://138.2.47.126:5000';
+    const defaultServerHost = window.location.protocol === 'http:' && window.location.port === '5000'
+      ? window.location.host
+      : '138.2.47.126:5000';
+    const serverUrl = params.get('server') || `ws://${defaultServerHost}`;
+    const shouldRedirectToGameServer = window.location.protocol === 'https:' && serverUrl.startsWith('ws:');
     const roomInvite = document.getElementById('room-invite');
     const roomCodeBadge = document.getElementById('room-code-badge');
 
@@ -62,8 +67,14 @@
     } else {
       roomCodeBadge.textContent = roomId;
       roomInvite.hidden = false;
-      const app = new GameApp();
-      app.start(serverUrl, roomId);
+
+      if (shouldRedirectToGameServer) {
+        const redirectParams = new URLSearchParams({ room: roomId });
+        window.location.replace(`${serverOrigin}/game.html?${redirectParams.toString()}`);
+      } else {
+        const app = new GameApp();
+        app.start(serverUrl, roomId);
+      }
     }
   </script>
 </body>
