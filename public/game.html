@@ -4,8 +4,39 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tennis Game - Match</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    #game-container { width: 100%; height: 100%; }
+    #controls-help {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      color: rgba(255,255,255,0.5); font-family: 'Courier New', monospace;
+      font-size: 13px; text-align: center; z-index: 10;
+      background: rgba(0,0,0,0.4); padding: 8px 16px; border-radius: 6px;
+      pointer-events: none;
+    }
+  </style>
 </head>
-<body style="margin:0;overflow:hidden;background:#000;">
-  <p style="color:#fff;text-align:center">Game scene coming in Task 7-8</p>
+<body>
+  <div id="game-container"></div>
+  <div id="controls-help">Move: WASD / Arrow Keys &nbsp;|&nbsp; J=Flat K=Topspin L=Slice U=Volley</div>
+
+  <script src="input.js"></script>
+  <script src="network.js"></script>
+  <script src="render.js"></script>
+  <script src="game.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('room');
+    const serverUrl = params.get('server') || `ws://${window.location.host}`;
+
+    if (!roomId) {
+      document.body.innerHTML = '<div style="color:#fff;padding:40px;font-size:24px">Error: No room ID provided. Go back and join a room.</div>';
+    } else {
+      const app = new GameApp();
+      app.start(serverUrl, roomId);
+    }
+  </script>
 </body>
 </html>
