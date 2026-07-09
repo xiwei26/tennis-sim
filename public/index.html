@@ -3,10 +3,178 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tennis Game</title>
+  <title>3D Tennis Battle</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', -apple-system, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+    }
+    .container {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 48px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+      max-width: 500px;
+      width: 90%;
+    }
+    h1 { font-size: 36px; margin-bottom: 8px; letter-spacing: 2px; }
+    h1 span.red { color: #E53935; }
+    h1 span.blue { color: #1E88E5; }
+    .subtitle { color: rgba(255,255,255,0.6); margin-bottom: 32px; font-size: 14px; }
+    .btn {
+      display: block; width: 100%; padding: 16px; border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 12px; background: rgba(255,255,255,0.06);
+      color: #fff; font-size: 18px; cursor: pointer; transition: all 0.2s;
+      margin-bottom: 16px; font-weight: 600;
+    }
+    .btn:hover { background: rgba(255,255,255,0.15); border-color: #fff; }
+    .btn-primary { background: #2E7D32; border-color: #2E7D32; }
+    .btn-primary:hover { background: #388E3C; border-color: #388E3C; }
+    .input-group {
+      display: flex; gap: 12px; margin-bottom: 16px;
+    }
+    .input-group input {
+      flex: 1; padding: 16px; border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 12px; background: rgba(255,255,255,0.06);
+      color: #fff; font-size: 18px; text-align: center;
+      text-transform: uppercase; letter-spacing: 6px; outline: none;
+      font-weight: 600;
+    }
+    .input-group input:focus { border-color: #2E7D32; }
+    .input-group input::placeholder {
+      text-transform: none; letter-spacing: 1px; color: rgba(255,255,255,0.3);
+    }
+    .input-group .btn { width: auto; padding: 16px 24px; margin-bottom: 0; }
+    .room-code {
+      background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px;
+      margin: 16px 0; display: none;
+    }
+    .room-code .code {
+      font-size: 48px; letter-spacing: 10px; font-weight: bold;
+      color: #D4E157; font-family: 'Courier New', monospace;
+    }
+    .room-code .hint { color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 13px; }
+    .status { margin-top: 16px; padding: 12px; border-radius: 8px; display: none; }
+    .status.error { display: block; background: rgba(229,57,53,0.2); color: #E53935; }
+    .status.info { display: block; background: rgba(46,125,50,0.2); color: #81C784; }
+    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 24px 0; }
+    .controls-info {
+      margin-top: 20px; font-size: 12px; color: rgba(255,255,255,0.4);
+    }
+    .controls-info kbd {
+      background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;
+      font-family: 'Courier New', monospace; font-size: 12px;
+    }
+  </style>
 </head>
 <body>
-  <h1>Tennis Game</h1>
-  <p>Landing page coming in Task 9</p>
+  <div class="container">
+    <h1><span class="red">●</span> TENNIS <span class="blue">●</span></h1>
+    <p class="subtitle">3D Multiplayer Online Tennis</p>
+
+    <button class="btn btn-primary" id="create-btn">Create New Room</button>
+
+    <hr class="divider">
+
+    <div class="input-group">
+      <input type="text" id="room-code-input" placeholder="Room Code" maxlength="5">
+      <button class="btn" id="join-btn">Join</button>
+    </div>
+
+    <div class="room-code" id="room-display">
+      <p style="color:rgba(255,255,255,0.6);margin-bottom:4px;">Share this code:</p>
+      <div class="code" id="room-code-value">ABC12</div>
+      <p class="hint">Waiting for opponent to join...</p>
+    </div>
+
+    <div class="status" id="status-message"></div>
+
+    <hr class="divider">
+
+    <div class="controls-info">
+      <kbd>WASD</kbd> / <kbd>↑↓←→</kbd> Move &nbsp;|&nbsp;
+      <kbd>J</kbd> Flat <kbd>K</kbd> Topspin <kbd>L</kbd> Slice <kbd>U</kbd> Volley
+    </div>
+  </div>
+
+  <script>
+    const serverUrl = window.location.origin;
+
+    let currentRoomId = null;
+    let ws = null;
+
+    const createBtn = document.getElementById('create-btn');
+    const joinBtn = document.getElementById('join-btn');
+    const roomInput = document.getElementById('room-code-input');
+    const roomDisplay = document.getElementById('room-display');
+    const roomCodeValue = document.getElementById('room-code-value');
+    const statusMsg = document.getElementById('status-message');
+
+    function showStatus(msg, type = 'info') {
+      statusMsg.className = 'status ' + type;
+      statusMsg.textContent = msg;
+    }
+
+    function hideStatus() {
+      statusMsg.className = 'status';
+    }
+
+    createBtn.addEventListener('click', async () => {
+      createBtn.disabled = true;
+      createBtn.textContent = 'Creating...';
+      hideStatus();
+
+      try {
+        const resp = await fetch('/api/rooms', { method: 'POST' });
+        const data = await resp.json();
+        currentRoomId = data.roomId;
+        roomCodeValue.textContent = currentRoomId;
+        roomDisplay.style.display = 'block';
+        showStatus('Room created! Share the code with your opponent.', 'info');
+        connectAndJoin(currentRoomId);
+      } catch (err) {
+        showStatus('Failed to create room: ' + err.message, 'error');
+      }
+
+      createBtn.disabled = false;
+      createBtn.textContent = 'Create New Room';
+    });
+
+    joinBtn.addEventListener('click', () => {
+      const code = roomInput.value.trim().toUpperCase();
+      if (code.length < 3) {
+        showStatus('Please enter a valid room code', 'error');
+        return;
+      }
+      hideStatus();
+
+      fetch('/api/rooms/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: code }),
+      }).then(resp => {
+        if (!resp.ok) return resp.json().then(d => { throw new Error(d.error); });
+        return resp.json();
+      }).then(data => {
+        currentRoomId = data.roomId;
+        connectAndJoin(currentRoomId);
+      }).catch(err => {
+        showStatus(err.message, 'error');
+      });
+    });
+
+    function connectAndJoin(roomId) {
+      showStatus('Connecting...', 'info');
+      window.location.href = `/game.html?room=${roomId}`;
+    }
+  </script>
 </body>
 </html>
