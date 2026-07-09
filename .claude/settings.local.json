@@ -1,7 +1,37 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rm /root/tennis-sim/AGENTS.md /root/tennis-sim/CLAUDE.md /root/tennis-sim/hyperframes.json /root/tennis-sim/index.html /root/tennis-sim/meta.json /root/tennis-sim/package.json)"
+      "Bash(rm /root/tennis-sim/AGENTS.md /root/tennis-sim/CLAUDE.md /root/tennis-sim/hyperframes.json /root/tennis-sim/index.html /root/tennis-sim/meta.json /root/tennis-sim/package.json)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Add tennis game design spec *)",
+      "Bash(ls /root/.claude/skills/subagent-driven-development/scripts/)",
+      "Bash(npm install *)",
+      "mcp__codeg-mcp__ask_user_question",
+      "Bash(timeout 3 node server/index.js)",
+      "Bash(git commit *)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 2)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 3)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 4)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 5)",
+      "Bash(node -e ' *)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 6)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 7)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 8)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 9)",
+      "Bash(node --check /root/tennis-sim/public/input.js)",
+      "Bash(node --check /root/tennis-sim/public/render.js)",
+      "Bash(/root/.claude/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-08-tennis-game-plan.md 10)",
+      "Bash(gh auth *)",
+      "Bash(git push *)",
+      "Bash(curl -s -X POST -H 'Accept: application/vnd.github+json' -H 'Authorization: Bearer __CMDSUB_OUTPUT__' https://api.github.com/repos/xiwei26/tennis-sim/pages -d '{\"source\":{\"branch\":\"main\",\"path\":\"/\"}}')",
+      "Bash(curl -s \"https://api.github.com/repos/xiwei26/tennis-sim/actions/runs?branch=main&status=completed&per_page=3\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(r['name'], r['conclusion'], r['created_at'][:19]\\) for r in data.get\\('workflow_runs', []\\)[:3]]\")",
+      "Bash(curl -s \"https://api.github.com/repos/xiwei26/tennis-sim/actions/runs?branch=main&status=success&per_page=1\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -sL \"https://api.github.com/repos/xiwei26/tennis-sim/actions/runs/28995179447/jobs\")",
+      "Bash(curl -sL \"https://xiwei26.github.io/tennis-sim/\")",
+      "Bash(cp public/*.html public/*.js . && touch .nojekyll && ls -la *.html *.js .nojekyll)",
+      "Bash(git rm *)"
     ]
   }
 }
