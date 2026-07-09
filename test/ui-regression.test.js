@@ -25,6 +25,18 @@ for (const page of landingPages) {
     assert.match(inputRule, /min-width\s*:\s*0\b/);
     assert.match(buttonRule, /flex\s*:\s*0\s+0\s+auto\b/);
   });
+
+  test(`${page} redirects HTTPS Pages actions to the HTTP game server`, () => {
+    const html = read(page);
+
+    assert.match(html, /const serverOrigin = `http:\/\/\$\{serverIP\}:5000`/);
+    assert.match(html, /const isSecureStaticPage = window\.location\.protocol === 'https:'/);
+    assert.match(html, /function continueOnGameServer\(params = \{\}\)/);
+    assert.match(html, /continueOnGameServer\(\{ action: 'create' \}\)/);
+    assert.match(html, /continueOnGameServer\(\{ action: 'join', room: code \}\)/);
+    assert.match(html, /if \(startupAction === 'create'\) createBtn\.click\(\)/);
+    assert.match(html, /if \(startupAction === 'join' && startupRoom\)/);
+  });
 }
 
 for (const page of gamePages) {
@@ -36,6 +48,8 @@ for (const page of gamePages) {
     assert.match(html, /roomCodeBadge\.textContent\s*=\s*roomId/);
     assert.match(html, /roomInvite\.hidden\s*=\s*false/);
     assert.match(html, /@media\s*\(max-width:\s*520px\)[\s\S]*#room-invite\s*\{[^}]*top:\s*116px;[^}]*left:\s*50%;[^}]*transform:\s*translateX\(-50%\)/);
+    assert.match(html, /const serverOrigin = 'http:\/\/138\.2\.47\.126:5000'/);
+    assert.match(html, /window\.location\.replace\(`\$\{serverOrigin\}\/game\.html\?\$\{redirectParams\.toString\(\)\}`\)/);
   });
 }
 
