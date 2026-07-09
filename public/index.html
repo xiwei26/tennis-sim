@@ -106,7 +106,8 @@
   </div>
 
   <script>
-    const serverUrl = window.location.origin;
+    const serverIP = '138.2.47.126';
+    const serverApi = `http://${serverIP}:5000`;
 
     let currentRoomId = null;
     let ws = null;
@@ -133,7 +134,7 @@
       hideStatus();
 
       try {
-        const resp = await fetch('/api/rooms', { method: 'POST' });
+        const resp = await fetch(serverApi + '/api/rooms', { method: 'POST' });
         const data = await resp.json();
         currentRoomId = data.roomId;
         roomCodeValue.textContent = currentRoomId;
@@ -156,7 +157,7 @@
       }
       hideStatus();
 
-      fetch('/api/rooms/join', {
+      fetch(serverApi + '/api/rooms/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomId: code }),

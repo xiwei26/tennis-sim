@@ -29,7 +29,7 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
-    const serverUrl = params.get('server') || `ws://${window.location.host}`;
+    const serverUrl = params.get('server') || 'ws://138.2.47.126:5000';
 
     if (!roomId) {
       document.body.innerHTML = '<div style="color:#fff;padding:40px;font-size:24px">Error: No room ID provided. Go back and join a room.</div>';
