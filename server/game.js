@@ -113,7 +113,11 @@ export class Game {
       if (input.down) player.z += PLAYER_SPEED * dt * (isPlayer1 ? 1 : -1);
 
       player.x = Math.max(-COURT.width / 2 + 0.5, Math.min(COURT.width / 2 - 0.5, player.x));
-      player.z = Math.max(-COURT.length / 2 + 0.5, Math.min(COURT.length / 2 - 0.5, player.z));
+      const backBoundary = COURT.length / 2 - 0.5;
+      const netBoundary = 0.5;
+      player.z = isPlayer1
+        ? Math.max(-backBoundary, Math.min(-netBoundary, player.z))
+        : Math.max(netBoundary, Math.min(backBoundary, player.z));
     }
   }
 

@@ -1,0 +1,13 @@
+# Normalize line endings — store as LF in the repo on every platform.
+# Git converts on checkin so CRLF working trees stop showing as "modified".
+* text=auto eol=lf
+
+# Binary assets: never apply text/EOL filters to these.
+*.fbx  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.woff  binary
+*.woff2 binary

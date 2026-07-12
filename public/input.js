@@ -17,6 +17,7 @@ class InputManager {
   constructor() {
     // Movement is a live key state; hit swings are event-driven (charge/release).
     this._move = { up: false, down: false, left: false, right: false };
+    this.playerId = null;
 
     this._hitTypeFor = {
       KeyJ: 'flat', Numpad1: 'flat',
@@ -32,6 +33,14 @@ class InputManager {
     this._onKeyUp = this._onKeyUp.bind(this);
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', this._onKeyUp);
+  }
+
+  /** Select the movement key profile assigned by the server for this client. */
+  setPlayerId(playerId) {
+    this.playerId = playerId === 'player1' || playerId === 'player2' ? playerId : null;
+    // Clear held movement when the profile changes so an earlier key cannot
+    // remain latched onto the newly assigned player.
+    this._move = { up: false, down: false, left: false, right: false };
   }
 
   _now() {
@@ -69,10 +78,13 @@ class InputManager {
   }
 
   _mapMove(code, value) {
-    if (code === 'KeyW' || code === 'ArrowUp') this._move.up = value;
-    else if (code === 'KeyS' || code === 'ArrowDown') this._move.down = value;
-    else if (code === 'KeyA' || code === 'ArrowLeft') this._move.left = value;
-    else if (code === 'KeyD' || code === 'ArrowRight') this._move.right = value;
+    const bindings = this.playerId === 'player1'
+      ? { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right' }
+      : this.playerId === 'player2'
+        ? { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }
+        : {};
+    const direction = bindings[code];
+    if (direction) this._move[direction] = value;
   }
 
   getKeys() {
