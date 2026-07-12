@@ -77,7 +77,7 @@ for (const file of rendererFiles) {
 
     assert.match(js, /this\._fitCourtModel\(obj\)/);
     assert.match(js, /this\._getMaterialBounds\(obj, 'court line'\)/);
-    assert.match(js, /group\.rotation\.y = Math\.PI \/ 2 \+ \(id === 'player2' \? Math\.PI : 0\)/);
+    assert.match(js, /group\.rotation\.y = Math\.PI \/ 2;/);
     assert.match(js, /if \(this\.netGroup\) this\.netGroup\.visible = false/);
   });
 }

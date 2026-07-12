@@ -302,9 +302,10 @@ class Renderer3D {
     shadow.position.set(0, 0.01, 0);
     group.add(shadow);
 
-    // Both source FBX files face along -X. Turn player 1 toward +Z (the net)
-    // and player 2 toward -Z so they face one another across the court.
-    group.rotation.y = Math.PI / 2 + (id === 'player2' ? Math.PI : 0);
+    // Both Tripo FBX exports use the same presentation pose. Turn both toward
+    // the camera-facing +Z direction so the in-game view matches the supplied
+    // reference renders and shows each character's authored front texture.
+    group.rotation.y = Math.PI / 2;
 
     this.scene.add(group);
     this.players[id] = { group, body, racket: racketGroup };
