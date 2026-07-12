@@ -52,7 +52,12 @@ Real tennis rules: 0 → 15 → 30 → 40 → Game. Deuce requires 2-point lead.
 │   ├── game.js     # Game orchestrator
 │   ├── input.js    # Keyboard input
 │   ├── network.js  # WebSocket client
-│   └── render.js   # Three.js 3D renderer
+│   ├── render.js   # Three.js 3D renderer
+│   ├── assets/     # Runtime court/player models and textures
+│   └── vendor/     # Browser-only third-party scripts
+├── test/           # node:test regression tests
+├── index.html      # GitHub Pages redirect into public/
+├── game.html       # GitHub Pages redirect into public/
 └── package.json
 ```
 

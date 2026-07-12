@@ -11,12 +11,17 @@ class NetworkClient {
 
   connect(serverUrl) {
     return new Promise((resolve, reject) => {
+      let settled = false;
       this.ws = new WebSocket(serverUrl);
-      this.ws.onopen = () => { console.log('Connected'); resolve(); };
-      this.ws.onerror = (err) => reject(err);
+      this.ws.onopen = () => { settled = true; console.log('Connected'); resolve(); };
+      this.ws.onerror = (err) => { if (!settled) { settled = true; reject(err); } };
       this.ws.onclose = () => {
         console.log('Disconnected');
         this._stopInputLoop();
+        if (!settled) {
+          settled = true;
+          reject(new Error('WebSocket closed before connecting'));
+        }
         if (this._callbacks.disconnect) this._callbacks.disconnect();
       };
       this.ws.onmessage = (event) => {
@@ -56,6 +61,7 @@ class NetworkClient {
   }
 
   _startInputLoop(getKeysFn) {
+    this._stopInputLoop();
     this._inputInterval = setInterval(() => {
       this.sendInput(getKeysFn());
     }, 1000 / 30);

@@ -157,6 +157,7 @@
 
       try {
         const resp = await fetch(serverApi + '/api/rooms', { method: 'POST' });
+        if (!resp.ok) return resp.json().then(d => { throw new Error(d.error || 'Failed to create room'); });
         const data = await resp.json();
         currentRoomId = data.roomId;
         roomCodeValue.textContent = currentRoomId;

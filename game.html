@@ -4,96 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tennis Game - Match</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- FBXLoader (and its fflate dependency) for the modelled court/players -->
-  <script src="vendor/fflate.min.js"></script>
-  <script src="vendor/FBXLoader.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-    #game-container { width: 100%; height: 100%; }
-    #controls-help {
-      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-      color: rgba(255,255,255,0.5); font-family: 'Courier New', monospace;
-      font-size: 13px; text-align: center; z-index: 10;
-      background: rgba(0,0,0,0.4); padding: 8px 16px; border-radius: 6px;
-      pointer-events: none;
-    }
-    #room-invite {
-      position: absolute; top: 18px; left: 18px; z-index: 30;
-      display: flex; align-items: center; gap: 10px;
-      color: #fff; font-family: 'Segoe UI', -apple-system, sans-serif;
-      background: rgba(0,0,0,0.58); border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 8px; padding: 9px 12px; pointer-events: none;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.22);
-    }
-    #room-invite[hidden] { display: none; }
-    #room-invite .label {
-      color: rgba(255,255,255,0.62); font-size: 12px; letter-spacing: 0.4px;
-      text-transform: uppercase;
-    }
-    #room-code-badge {
-      color: #D4E157; font: 700 20px 'Courier New', monospace; letter-spacing: 3px;
-    }
-    @media (max-width: 520px) {
-      #room-invite { top: 116px; left: 50%; transform: translateX(-50%); padding: 8px 10px; }
-      #room-code-badge { font-size: 17px; letter-spacing: 2px; }
-    }
-    #leave-room-btn {
-      position: absolute; top: 18px; right: 18px; z-index: 40;
-      font: 600 14px 'Segoe UI', -apple-system, sans-serif; color: #fff;
-      background: rgba(220,53,69,0.85); border: 1px solid rgba(255,255,255,0.25);
-      border-radius: 8px; padding: 9px 16px; cursor: pointer;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.22); transition: background 0.15s;
-    }
-    #leave-room-btn:hover { background: rgba(200,35,51,0.95); }
-    #leave-room-btn[hidden] { display: none; }
-  </style>
+  <script>
+    window.location.replace('public/game.html' + window.location.search);
+  </script>
 </head>
 <body>
-  <div id="game-container"></div>
-  <div id="room-invite" hidden>
-    <span class="label">Invite Code</span>
-    <span id="room-code-badge"></span>
-  </div>
-  <button id="leave-room-btn" type="button" hidden>退出房间</button>
-  <div id="controls-help">Move: WASD / Arrow Keys &nbsp;|&nbsp; Hold J/K/L/U to charge, release to swing (J=Flat K=Topspin L=Slice U=Volley)</div>
-
-
-  <script src="input.js"></script>
-  <script src="network.js"></script>
-  <script src="render.js"></script>
-  <script src="game.js"></script>
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const roomId = params.get('room');
-    const serverOrigin = 'http://138.2.47.126:5000';
-    const defaultServerHost = window.location.protocol === 'http:' && window.location.port === '5000'
-      ? window.location.host
-      : '138.2.47.126:5000';
-    const serverUrl = params.get('server') || `ws://${defaultServerHost}`;
-    const shouldRedirectToGameServer = window.location.protocol === 'https:' && serverUrl.startsWith('ws:');
-    const roomInvite = document.getElementById('room-invite');
-    const roomCodeBadge = document.getElementById('room-code-badge');
-
-    if (!roomId) {
-      document.body.innerHTML = '<div style="color:#fff;padding:40px;font-size:24px">Error: No room ID provided. Go back and join a room.</div>';
-    } else {
-      roomCodeBadge.textContent = roomId;
-      roomInvite.hidden = false;
-
-      if (shouldRedirectToGameServer) {
-        const redirectParams = new URLSearchParams({ room: roomId });
-        window.location.replace(`${serverOrigin}/game.html?${redirectParams.toString()}`);
-      } else {
-        const app = new GameApp();
-        window.gameApp = app;
-        const leaveBtn = document.getElementById('leave-room-btn');
-        leaveBtn.hidden = false;
-        leaveBtn.addEventListener('click', () => app.leave());
-        app.start(serverUrl, roomId);
-      }
-    }
-  </script>
+  <p><a href="public/game.html">Open Tennis Match</a></p>
 </body>
 </html>

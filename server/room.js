@@ -7,9 +7,11 @@ const ROOM_TIMEOUT_MS = 120_000;
 const CLEANUP_INTERVAL_MS = 30_000;
 
 export class RoomManager {
-  constructor() {
+  constructor({ startCleanup = true, emptyRoomDelayMs = 5000, closingRoomDelayMs = 5000 } = {}) {
     this.rooms = new Map();
-    this._startCleanup();
+    this.emptyRoomDelayMs = emptyRoomDelayMs;
+    this.closingRoomDelayMs = closingRoomDelayMs;
+    if (startCleanup) this._startCleanup();
   }
 
   _generateCode() {
@@ -27,7 +29,7 @@ export class RoomManager {
       id = this._generateCode();
     } while (this.rooms.has(id));
 
-    const room = { id, players: [], createdAt: Date.now(), game: null };
+    const room = { id, players: [], createdAt: Date.now(), game: null, startTimers: [], deleteTimer: null };
     this.rooms.set(id, room);
     console.log(`Room created: ${id}`);
     return room;
@@ -39,7 +41,12 @@ export class RoomManager {
 
   addPlayer(roomId, ws) {
     const room = this.rooms.get(roomId);
-    if (!room || room.players.length >= 2) return null;
+    if (!room || room.closing || room.players.length >= 2) return null;
+    if (room.players.some(p => p.ws === ws)) return null;
+    if (room.deleteTimer) {
+      clearTimeout(room.deleteTimer);
+      room.deleteTimer = null;
+    }
     const playerId = room.players.length === 0 ? 'player1' : 'player2';
     room.players.push({ id: playerId, ws });
     console.log(`Player ${playerId} joined room ${roomId}`);
@@ -52,6 +59,8 @@ export class RoomManager {
     room.players = room.players.filter(p => p.id !== playerId);
 
     // Stop the running match — no point simulating with a missing player.
+    for (const timer of room.startTimers || []) clearTimeout(timer);
+    room.startTimers = [];
     if (room.game) {
       room.game.stop();
       room.game = null;
@@ -62,7 +71,7 @@ export class RoomManager {
       if (room.closing) return;
       room.closing = true;
       this.broadcast(roomId, { type: 'opponent_left', seconds: 5 });
-      setTimeout(() => {
+      room.deleteTimer = setTimeout(() => {
         const r = this.rooms.get(roomId);
         if (!r) return;
         for (const p of r.players) {
@@ -70,13 +79,15 @@ export class RoomManager {
         }
         this.rooms.delete(roomId);
         console.log(`Room ${roomId} closed (opponent left)`);
-      }, 5000);
+      }, this.closingRoomDelayMs);
     } else {
       // Empty room — clean up shortly.
-      setTimeout(() => {
+      room.deleteTimer = setTimeout(() => {
+        const r = this.rooms.get(roomId);
+        if (!r || r.players.length > 0) return;
         this.rooms.delete(roomId);
         console.log(`Room ${roomId} destroyed (empty)`);
-      }, 5000);
+      }, this.emptyRoomDelayMs);
     }
   }
 

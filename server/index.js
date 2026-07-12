@@ -26,6 +26,7 @@ app.post('/api/rooms/join', (req, res) => {
   const { roomId } = req.body;
   const room = roomManager.getRoom(roomId);
   if (!room) return res.status(404).json({ error: 'Room not found' });
+  if (room.closing) return res.status(400).json({ error: 'Room is closing' });
   if (room.players.length >= 2) return res.status(400).json({ error: 'Room is full' });
   res.json({ roomId: room.id, playerCount: room.players.length + 1 });
 });
@@ -55,14 +56,24 @@ wss.on('connection', (ws, req) => {
             roomManager.broadcast(roomId, state);
           });
           room.game = game;
+          room.startTimers = [];
+          const schedule = (fn, delay) => {
+            const timer = setTimeout(() => {
+              room.startTimers = room.startTimers.filter(t => t !== timer);
+              const currentRoom = roomManager.getRoom(roomId);
+              if (!currentRoom || currentRoom.game !== game || currentRoom.closing || currentRoom.players.length !== 2) return;
+              fn();
+            }, delay);
+            room.startTimers.push(timer);
+          };
           roomManager.broadcast(roomId, { type: 'game_start', message: 'Match started!' });
-          setTimeout(() => {
+          schedule(() => {
             roomManager.broadcast(roomId, { type: 'countdown', seconds: 3 });
-            setTimeout(() => {
+            schedule(() => {
               roomManager.broadcast(roomId, { type: 'countdown', seconds: 2 });
-              setTimeout(() => {
+              schedule(() => {
                 roomManager.broadcast(roomId, { type: 'countdown', seconds: 1 });
-                setTimeout(() => {
+                schedule(() => {
                   roomManager.broadcast(roomId, { type: 'game_begin' });
                   game.start();
                 }, 1000);

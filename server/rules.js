@@ -25,8 +25,8 @@ export function checkSetWinner(p1Games, p2Games) {
   if (p1Games >= 6 && p1Games - p2Games >= 2) return 1;
   if (p2Games >= 6 && p2Games - p1Games >= 2) return 2;
   // Tiebreak at 6-6: simplified, first to 7 wins
-  if (p1Games === 7 && p2Games <= 5) return 1;
-  if (p2Games === 7 && p1Games <= 5) return 2;
+  if (p1Games === 7 && p2Games <= 6) return 1;
+  if (p2Games === 7 && p1Games <= 6) return 2;
   return null;
 }
 

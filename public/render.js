@@ -594,9 +594,10 @@ class Renderer3D {
   }
 
   showMessage(text, durationMs = 2000) {
+    clearTimeout(this._messageTimer);
     this.messageOverlay.textContent = text;
     this.messageOverlay.style.opacity = '1';
-    setTimeout(() => { this.messageOverlay.style.opacity = '0'; }, durationMs);
+    this._messageTimer = setTimeout(() => { this.messageOverlay.style.opacity = '0'; }, durationMs);
   }
 
 
@@ -634,6 +635,7 @@ class Renderer3D {
   }
 
   destroy() {
+    clearTimeout(this._messageTimer);
     window.removeEventListener('resize', this._onResize);
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {

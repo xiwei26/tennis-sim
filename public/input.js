@@ -31,8 +31,16 @@ class InputManager {
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onKeyUp = this._onKeyUp.bind(this);
+    this._resetState = this._resetState.bind(this);
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', this._onKeyUp);
+    window.addEventListener('blur', this._resetState);
+  }
+
+  _resetState() {
+    this._move = { up: false, down: false, left: false, right: false };
+    this._charging = null;
+    this._pendingHit = null;
   }
 
   /** Select the movement key profile assigned by the server for this client. */
@@ -40,7 +48,7 @@ class InputManager {
     this.playerId = playerId === 'player1' || playerId === 'player2' ? playerId : null;
     // Clear held movement when the profile changes so an earlier key cannot
     // remain latched onto the newly assigned player.
-    this._move = { up: false, down: false, left: false, right: false };
+    this._resetState();
   }
 
   _now() {
@@ -124,5 +132,6 @@ class InputManager {
   destroy() {
     window.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keyup', this._onKeyUp);
+    window.removeEventListener('blur', this._resetState);
   }
 }

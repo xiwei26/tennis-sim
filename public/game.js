@@ -44,6 +44,7 @@ class GameApp {
     });
 
     this.network.on('gameBegin', () => {
+      if (this.running) return;
       this.renderer.showMessage('PLAY!', 800);
       this.running = true;
       // Start input loop

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const inputFiles = ['input.js', 'public/input.js'];
+const inputFiles = ['public/input.js'];
 
 function createInputManager(path) {
   const handlers = {};
@@ -18,13 +18,14 @@ function createInputManager(path) {
   });
   const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
   vm.runInContext(`${source}\nglobalThis.TestInputManager = InputManager;`, context);
-  return {
-    input: new context.TestInputManager(),
-    keyDown(code) { handlers.keydown({ code, repeat: false, preventDefault() {} }); },
-    keyUp(code) { handlers.keyup({ code, preventDefault() {} }); },
-    setClock(value) { clock = value; },
-  };
-}
+    return {
+      input: new context.TestInputManager(),
+      keyDown(code) { handlers.keydown({ code, repeat: false, preventDefault() {} }); },
+      keyUp(code) { handlers.keyup({ code, preventDefault() {} }); },
+      blur() { handlers.blur(); },
+      setClock(value) { clock = value; },
+    };
+  }
 
 for (const file of inputFiles) {
   test(`${file} gives player 1 only the WASD movement profile`, () => {
@@ -63,5 +64,18 @@ for (const file of inputFiles) {
     const keys = controls.input.getKeys();
     assert.equal(keys.hit_flat, true);
     assert.equal(keys.power, 0.5);
+  });
+
+  test(`${file} clears movement and charge state on window blur`, () => {
+    const controls = createInputManager(file);
+    controls.input.setPlayerId('player1');
+    controls.keyDown('KeyW');
+    controls.keyDown('KeyJ');
+
+    controls.blur();
+
+    const keys = controls.input.getKeys();
+    assert.equal(keys.up, false);
+    assert.equal(controls.input.getChargeState().charging, false);
   });
 }

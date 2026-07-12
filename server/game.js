@@ -31,6 +31,7 @@ export class Game {
 
 
     this.ball = null;
+    this.lastHitter = null;
     this.scoring = createInitialState();
     this.phase = 'serve';
     this.phaseTimer = 0;
@@ -38,6 +39,7 @@ export class Game {
   }
 
   start() {
+    if (this.running) return;
     this.running = true;
     this._startServe('player1');
     this.intervalId = setInterval(() => this._tick(), 1000 / TICK_RATE);
@@ -109,8 +111,10 @@ export class Game {
 
       if (input.left) player.x -= PLAYER_SPEED * dt;
       if (input.right) player.x += PLAYER_SPEED * dt;
-      if (input.up) player.z -= PLAYER_SPEED * dt * (isPlayer1 ? 1 : -1);
-      if (input.down) player.z += PLAYER_SPEED * dt * (isPlayer1 ? 1 : -1);
+      // Fixed camera: "up" always moves toward the far end of the court
+      // (decreasing z) and "down" toward the near end, for both players.
+      if (input.up) player.z -= PLAYER_SPEED * dt;
+      if (input.down) player.z += PLAYER_SPEED * dt;
 
       player.x = Math.max(-COURT.width / 2 + 0.5, Math.min(COURT.width / 2 - 0.5, player.x));
       const backBoundary = COURT.length / 2 - 0.5;
@@ -124,6 +128,8 @@ export class Game {
   _startServe(serverId) {
     this.phase = 'serve';
     this.ballInPlay = false;
+    this.lastHitter = null;
+    for (const player of Object.values(this.players)) player.serving = false;
     const server = this.players[serverId];
     server.serving = true;
     const serveDir = serverId === 'player1' ? 1 : -1;
@@ -168,6 +174,7 @@ export class Game {
     const targetZ = opponentId === 'player1' ? -COURT.length / 4 : COURT.length / 4;
 
     applyHit(this.ball, hitType, server.z, targetZ, targetX, power);
+    this.lastHitter = serverId;
     // Serves are hit from high up with a downward drive.
     this.ball.vy = 3.5 + 2 * Math.max(0, Math.min(1, power));
     server.hitCooldown = 0.2;
@@ -188,7 +195,7 @@ export class Game {
 
     const bounds = checkOutOfBounds(this.ball);
     if (bounds !== 'in' && this.ball.y <= COURT.groundY + 0.2) {
-      const winner = this.ball.z > 0 ? 1 : 2;
+      const winner = this.lastHitter === 'player1' ? 2 : this.lastHitter === 'player2' ? 1 : (this.ball.z > 0 ? 1 : 2);
       this._awardPoint(winner, `Out: ${bounds}`);
       return;
     }
@@ -212,12 +219,13 @@ export class Game {
         const opponent = this.players[opponentId];
         const targetZ = opponentId === 'player1' ? -COURT.length / 2 + 1 : COURT.length / 2 - 1;
         applyHit(this.ball, hitType, player.z, targetZ, opponent.x + (Math.random() - 0.5) * 2, power);
+        this.lastHitter = id;
       }
 
     }
 
     if (Math.abs(this.ball.vy) < 0.1 && this.ball.y <= COURT.groundY + 0.15) {
-      const winner = this.ball.z > 0 ? 1 : 2;
+      const winner = this.lastHitter === 'player1' ? 2 : this.lastHitter === 'player2' ? 1 : (this.ball.z > 0 ? 1 : 2);
       this._awardPoint(winner, 'Missed return');
     }
   }
