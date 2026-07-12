@@ -306,6 +306,9 @@ class Renderer3D {
     // the camera-facing +Z direction so the in-game view matches the supplied
     // reference renders and shows each character's authored front texture.
     group.rotation.y = Math.PI / 2;
+    // player1 defends the far baseline (z < 0) and must face the opposite way
+    // so it looks across the net at its opponent instead of turning its back.
+    if (id === 'player1') group.rotation.y += Math.PI;
 
     this.scene.add(group);
     this.players[id] = { group, body, racket: racketGroup };
@@ -631,10 +634,4 @@ class Renderer3D {
   }
 
   destroy() {
-    window.removeEventListener('resize', this._onResize);
-    this.renderer.dispose();
-    if (this.renderer.domElement.parentNode) {
-      this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
-    }
-  }
-}
+    window.rem
