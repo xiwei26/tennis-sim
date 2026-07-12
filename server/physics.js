@@ -76,9 +76,23 @@ export function checkRacketHit(ball, playerX, playerZ, playerReach) {
   return dist <= playerReach && ball.y >= 0.5 && ball.y <= 2.0;
 }
 
-export function applyHit(ball, hitType, hitterZ, targetZ, targetX) {
+/**
+ * Apply a stroke to the ball.
+ *
+ * @param {number} power  Charge power in [0..1]. 0 = a soft tap that still just
+ *                        clears the net, 1 = a full-power drive. The horizontal
+ *                        speed and the launch arc both scale with power so that
+ *                        weak shots don't sail long and strong shots stay in.
+ */
+export function applyHit(ball, hitType, hitterZ, targetZ, targetX, power = 1) {
+  const p = Math.max(0, Math.min(1, power));
   const dirZ = targetZ > hitterZ ? 1 : -1;
-  const baseSpeed = 14;
+  // Forward (toward the net, along Z) speed ramps with power. A minimum of ~12
+  // is needed so the ball actually reaches the far court before gravity pulls
+  // it down; power then adds pace on top.
+  const forward = 13 + 3 * p;               // 13 (tap) .. 16 (full power)
+  const lateral = 4 + 4 * p;                // sideways aiming component
+
   const targetXFinal = targetX != null ? targetX : (Math.random() - 0.5) * 4;
 
   ball.y = 0.8;
@@ -87,36 +101,49 @@ export function applyHit(ball, hitType, hitterZ, targetZ, targetX) {
   const dz = (targetZ + dirZ * 5) - ball.z;
   const dist = Math.sqrt(dx * dx + dz * dz) || 1;
 
+  // Vertical launch. Even the weakest shot clears the ~1.2m net (needs vy >= ~9
+  // at these forward speeds); harder shots are a touch flatter and land deeper.
+  const baseLift = 8.0 + 1.0 * p;           // 8.0 (tap) .. 9.0 (full power)
+
+
+  // Split the aim direction: dz drives the (dominant) forward axis, dx the lateral.
+  const vzUnit = (dz / dist);
+  const vxUnit = (dx / dist);
+
   switch (hitType) {
     case 'flat':
-      ball.vx = (dx / dist) * baseSpeed * 1.1;
-      ball.vy = 2.5;
-      ball.vz = (dz / dist) * baseSpeed * 1.1;
+      ball.vx = vxUnit * lateral;
+      ball.vy = baseLift;
+      ball.vz = vzUnit * forward;
       ball.spin = { x: 0, z: 0 };
       break;
     case 'topspin':
-      ball.vx = (dx / dist) * baseSpeed * 0.9;
-      ball.vy = 6;
-      ball.vz = (dz / dist) * baseSpeed * 0.9;
+      ball.vx = vxUnit * lateral;
+      ball.vy = baseLift + 1.0;             // extra loop, dips back in
+      ball.vz = vzUnit * forward * 0.95;
       ball.spin = { x: -1, z: 2 };
       break;
     case 'slice':
-      ball.vx = (dx / dist) * baseSpeed * 0.6;
-      ball.vy = 1.5;
-      ball.vz = (dz / dist) * baseSpeed * 0.6;
+      ball.vx = vxUnit * lateral;
+      ball.vy = baseLift + 0.5;   // slice floats; needs loft to clear the net
+      ball.vz = vzUnit * forward * 0.9;
       ball.spin = { x: 1, z: -1.5 };
       break;
     case 'volley':
-      ball.vx = (dx / dist) * baseSpeed * 0.8;
-      ball.vy = 1.0;
-      ball.vz = (dz / dist) * baseSpeed * 0.8;
+      ball.vx = vxUnit * lateral;
+      ball.vy = baseLift;
+      ball.vz = vzUnit * forward * 0.95;
       ball.spin = { x: 0, z: 0 };
       break;
+
     default:
-      ball.vx = (dx / dist) * baseSpeed;
-      ball.vy = 4;
-      ball.vz = (dz / dist) * baseSpeed;
+      ball.vx = vxUnit * lateral;
+      ball.vy = baseLift;
+      ball.vz = vzUnit * forward;
       ball.spin = { x: 0, z: 0 };
   }
   return ball;
 }
+
+
+

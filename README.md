@@ -27,7 +27,13 @@ Server runs on `http://localhost:5000`.
 | Slice | L |
 | Volley | U |
 
-Press any hit key (J/K/L/U) to serve.
+**Press-and-hold to charge:** Hold a hit key (J/K/L/U) to build up power, then
+release to swing. The longer you hold (up to ~1s for a full charge), the harder
+and faster the shot. A quick tap still clears the net. A charge bar at the bottom
+of the screen shows your current power.
+
+To serve, hold and release a hit key from behind your baseline.
+
 
 ### Scoring
 Real tennis rules: 0 → 15 → 30 → 40 → Game. Deuce requires 2-point lead. First to 6 games wins the set and match.

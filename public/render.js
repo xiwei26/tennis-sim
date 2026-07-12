@@ -1,7 +1,15 @@
 /**
  * Three.js 3D renderer for the tennis court.
  * Fixed oblique view: camera at 45° looking down at the court.
+ *
+ * The court and the two players are loaded from the FBX models placed in
+ * ./assets (003_Tennis_court.fbx, red.fbx, blue.fbx). Procedural primitive
+ * versions are still built as a fallback and are only hidden once the matching
+ * model has finished loading, so the game keeps working even if a model is
+ * missing or fails to download.
  */
+
+const ASSET_BASE = 'assets/';
 
 class Renderer3D {
   constructor(containerId) {
@@ -54,24 +62,30 @@ class Renderer3D {
 
     this._createScoreDisplay();
     this._createMessageOverlay();
+    this._createChargeBar();
+
+    // Swap in the FBX models produced in the modelling software.
+    this._loadModels();
 
     this._onResize = this.resize.bind(this);
     window.addEventListener('resize', this._onResize);
   }
 
   _buildCourt() {
+    this.courtGroup = new THREE.Group();
+
     const courtMat = new THREE.MeshStandardMaterial({ color: 0x2E7D32, roughness: 0.8 });
     this.court = new THREE.Mesh(new THREE.PlaneGeometry(10, 20), courtMat);
     this.court.rotation.x = -Math.PI / 2;
     this.court.receiveShadow = true;
-    this.scene.add(this.court);
+    this.courtGroup.add(this.court);
 
     const stripeMat = new THREE.MeshStandardMaterial({ color: 0x388E3C, roughness: 0.8 });
     for (let z = -9; z <= 9; z += 2.5) {
       const stripe = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.2), stripeMat);
       stripe.rotation.x = -Math.PI / 2;
       stripe.position.set(0, 0.01, z);
-      this.scene.add(stripe);
+      this.courtGroup.add(stripe);
     }
 
     const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
@@ -86,50 +100,308 @@ class Renderer3D {
     this._addLine(lineMat, 0, 0.02, 10, 0, 0.02, 9.5);
     this._addLine(lineMat, -4.5, 0.02, -10, -4.5, 0.02, 10);
     this._addLine(lineMat, 4.5, 0.02, -10, 4.5, 0.02, 10);
+
+    this.scene.add(this.courtGroup);
   }
 
   _addLine(mat, x1, y1, z1, x2, y2, z2) {
     const geo = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(x1, y1, z1), new THREE.Vector3(x2, y2, z2)
     ]);
-    this.scene.add(new THREE.Line(geo, mat));
+    this.courtGroup.add(new THREE.Line(geo, mat));
   }
 
   _buildNet() {
+    this.netGroup = new THREE.Group();
     const postMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5 });
     for (const x of [-5, 5]) {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.5), postMat);
       post.position.set(x, 0.75, 0);
-      this.scene.add(post);
+      this.netGroup.add(post);
     }
     const netMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, wireframe: true });
     const net = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.2, 20, 10), netMat);
     net.position.set(0, 0.6, 0);
-    this.scene.add(net);
+    this.netGroup.add(net);
     const tapeMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
     const tape = new THREE.Mesh(new THREE.BoxGeometry(10, 0.04, 0.04), tapeMat);
     tape.position.set(0, 1.2, 0);
-    this.scene.add(tape);
+    this.netGroup.add(tape);
+    this.scene.add(this.netGroup);
   }
 
   _createPlayer(id, color) {
+    // Outer container that gets moved around by updateState().
     const group = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.9, 8), bodyMat);
-    body.position.y = 0.45;
-    body.castShadow = true;
+    // The procedural body lives in its own subgroup so it can be hidden once
+    // the FBX model has loaded.
+    const body = new THREE.Group();
     group.add(body);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xFFDBAC, roughness: 0.5 });
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), headMat);
-    head.position.y = 1.0;
+
+    const skinColor = 0xFFDBAC;
+    const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5 });
+    const shirtMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
+    const shortsMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 });
+    const shoeMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.5 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: 0x3E2723, roughness: 0.8 });
+
+    // --- Feet / Shoes ---
+    const shoeGeo = new THREE.BoxGeometry(0.16, 0.08, 0.25);
+    const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
+    leftShoe.position.set(-0.12, 0.04, 0);
+    leftShoe.castShadow = true;
+    body.add(leftShoe);
+    const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
+    rightShoe.position.set(0.12, 0.04, 0);
+    rightShoe.castShadow = true;
+    body.add(rightShoe);
+
+    // --- Legs ---
+    const legGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.4, 8);
+    const leftLeg = new THREE.Mesh(legGeo, skinMat);
+    leftLeg.position.set(-0.12, 0.28, 0);
+    leftLeg.castShadow = true;
+    body.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeo, skinMat);
+    rightLeg.position.set(0.12, 0.28, 0);
+    rightLeg.castShadow = true;
+    body.add(rightLeg);
+
+    // --- Shorts ---
+    const shortsGeo = new THREE.BoxGeometry(0.44, 0.2, 0.26);
+    const shorts = new THREE.Mesh(shortsGeo, shortsMat);
+    shorts.position.set(0, 0.55, 0);
+    shorts.castShadow = true;
+    body.add(shorts);
+
+    // --- Torso (shirt) ---
+    const torsoGeo = new THREE.CylinderGeometry(0.22, 0.24, 0.45, 10);
+    const torso = new THREE.Mesh(torsoGeo, shirtMat);
+    torso.position.set(0, 0.82, 0);
+    torso.castShadow = true;
+    body.add(torso);
+
+    // --- Collar detail ---
+    const collarGeo = new THREE.TorusGeometry(0.18, 0.025, 6, 12);
+    const collarMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.5 });
+    const collar = new THREE.Mesh(collarGeo, collarMat);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.set(0, 1.04, 0);
+    body.add(collar);
+
+    // --- Shoulders ---
+    const shoulderGeo = new THREE.SphereGeometry(0.09, 8, 8);
+    const leftShoulder = new THREE.Mesh(shoulderGeo, shirtMat);
+    leftShoulder.position.set(-0.30, 0.98, 0);
+    body.add(leftShoulder);
+    const rightShoulder = new THREE.Mesh(shoulderGeo, shirtMat);
+    rightShoulder.position.set(0.30, 0.98, 0);
+    body.add(rightShoulder);
+
+    // --- Arms ---
+    const armGeo = new THREE.CylinderGeometry(0.055, 0.06, 0.4, 8);
+    // Left arm (non-racket hand) hangs down
+    const leftArm = new THREE.Mesh(armGeo, skinMat);
+    leftArm.position.set(-0.32, 0.72, 0);
+    leftArm.castShadow = true;
+    body.add(leftArm);
+    // Right arm (racket hand) extends out
+    const rightArm = new THREE.Mesh(armGeo, skinMat);
+    rightArm.position.set(0.38, 0.82, 0.05);
+    rightArm.rotation.z = -Math.PI / 4;
+    rightArm.castShadow = true;
+    body.add(rightArm);
+
+    // --- Hands ---
+    const handGeo = new THREE.SphereGeometry(0.05, 6, 6);
+    const leftHand = new THREE.Mesh(handGeo, skinMat);
+    leftHand.position.set(-0.32, 0.50, 0);
+    body.add(leftHand);
+    const rightHand = new THREE.Mesh(handGeo, skinMat);
+    rightHand.position.set(0.52, 0.66, 0.05);
+    body.add(rightHand);
+
+    // --- Neck ---
+    const neckGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.1, 8);
+    const neck = new THREE.Mesh(neckGeo, skinMat);
+    neck.position.set(0, 1.09, 0);
+    body.add(neck);
+
+    // --- Head ---
+    const headGeo = new THREE.SphereGeometry(0.18, 16, 16);
+    const head = new THREE.Mesh(headGeo, skinMat);
+    head.position.set(0, 1.28, 0);
     head.castShadow = true;
-    group.add(head);
-    const racketMat = new THREE.MeshStandardMaterial({ color: 0xDDDDDD, roughness: 0.3 });
-    const racket = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.05), racketMat);
-    racket.position.set(0.45, 0.6, 0);
-    group.add(racket);
+    body.add(head);
+
+    // --- Hair ---
+    const hairGeo = new THREE.SphereGeometry(0.19, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    const hair = new THREE.Mesh(hairGeo, hairMat);
+    hair.position.set(0, 1.30, 0);
+    body.add(hair);
+
+    // --- Eyes ---
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 });
+    const eyeGeo = new THREE.SphereGeometry(0.025, 6, 6);
+    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+    leftEye.position.set(-0.07, 1.30, 0.16);
+    body.add(leftEye);
+    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+    rightEye.position.set(0.07, 1.30, 0.16);
+    body.add(rightEye);
+
+    // --- Headband ---
+    const headbandGeo = new THREE.TorusGeometry(0.185, 0.02, 6, 16);
+    const headbandMat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
+    const headband = new THREE.Mesh(headbandGeo, headbandMat);
+    headband.rotation.x = Math.PI / 2;
+    headband.position.set(0, 1.33, 0);
+    body.add(headband);
+
+    // --- Racket ---
+    const racketGroup = new THREE.Group();
+    // Handle
+    const handleGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.30, 8);
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x4E342E, roughness: 0.7 });
+    const handle = new THREE.Mesh(handleGeo, handleMat);
+    handle.position.set(0, -0.15, 0);
+    racketGroup.add(handle);
+    // Frame (ellipse-like ring)
+    const frameGeo = new THREE.TorusGeometry(0.17, 0.02, 8, 20);
+    const frameMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.3, metalness: 0.4 });
+    const frame = new THREE.Mesh(frameGeo, frameMat);
+    frame.position.set(0, 0.10, 0);
+    racketGroup.add(frame);
+    // Strings (flat semi-transparent disc)
+    const stringsGeo = new THREE.CircleGeometry(0.155, 16);
+    const stringsMat = new THREE.MeshStandardMaterial({
+      color: 0xFFFFFF, transparent: true, opacity: 0.35,
+      roughness: 0.3, side: THREE.DoubleSide
+    });
+    const strings = new THREE.Mesh(stringsGeo, stringsMat);
+    strings.position.set(0, 0.10, 0);
+    racketGroup.add(strings);
+
+    racketGroup.position.set(0.56, 0.60, 0.08);
+    racketGroup.rotation.z = -Math.PI / 6;
+    body.add(racketGroup);
+
+    // --- Shadow circle on ground (kept on the container so it stays under the
+    //     FBX model too) ---
+    const shadowGeo = new THREE.CircleGeometry(0.35, 16);
+    const shadowMat = new THREE.MeshStandardMaterial({
+      color: 0x000000, transparent: true, opacity: 0.18, roughness: 1
+    });
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(0, 0.01, 0);
+    group.add(shadow);
+
+    // Player 2 faces the opposite direction (toward negative Z)
+    if (id === 'player2') {
+      group.rotation.y = Math.PI;
+    }
+
     this.scene.add(group);
-    this.players[id] = { group, racket };
+    this.players[id] = { group, body, racket: racketGroup };
+  }
+
+  /**
+   * Load the FBX models exported from the modelling software and swap them in
+   * for the procedural placeholders. Everything degrades gracefully: if the
+   * loader or a file is unavailable the primitive version simply stays visible.
+   */
+  _loadModels() {
+    if (typeof THREE === 'undefined' || typeof THREE.FBXLoader === 'undefined') {
+      console.warn('[render] THREE.FBXLoader not available — keeping procedural models.');
+      return;
+    }
+    const loader = new THREE.FBXLoader();
+
+    // --- Court ---
+    loader.load(
+      ASSET_BASE + '003_Tennis_court.fbx',
+      (obj) => {
+        this._prepareModel(obj, { receiveShadow: true });
+        // Fit the model so its footprint matches the logical 10 x 20 court.
+        this._fitToGround(obj, { targetWidth: 10, targetDepth: 20 });
+        this.scene.add(obj);
+        this.courtModel = obj;
+        // Hide the procedural court once the model is in place.
+        if (this.courtGroup) this.courtGroup.visible = false;
+      },
+      undefined,
+      (err) => console.warn('[render] Failed to load court model:', err)
+    );
+
+    // --- Players ---
+    this._loadPlayerModel(ASSET_BASE + 'red.fbx', 'player1');
+    this._loadPlayerModel(ASSET_BASE + 'blue.fbx', 'player2');
+  }
+
+  _loadPlayerModel(url, id) {
+    const loader = new THREE.FBXLoader();
+    loader.load(
+      url,
+      (obj) => {
+        this._prepareModel(obj, { castShadow: true });
+        // Scale the model to a believable player height (~1.5 units) and drop
+        // its feet onto the ground plane.
+        this._fitToGround(obj, { targetHeight: 1.5 });
+        const entry = this.players[id];
+        entry.group.add(obj);
+        entry.model = obj;
+        // Hide the procedural body but keep the ground shadow.
+        if (entry.body) entry.body.visible = false;
+      },
+      undefined,
+      (err) => console.warn(`[render] Failed to load player model ${url}:`, err)
+    );
+  }
+
+  /** Enable lighting/shadows on every mesh of a loaded model. */
+  _prepareModel(obj, { castShadow = false, receiveShadow = false } = {}) {
+    obj.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = castShadow;
+        child.receiveShadow = receiveShadow;
+        // FBX sometimes ships materials with no side set; make sure thin
+        // geometry is not culled.
+        if (child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach((m) => { if (m) m.side = THREE.FrontSide; });
+        }
+      }
+    });
+  }
+
+  /**
+   * Uniformly scale a model to a target size and rest it on the ground (y = 0),
+   * centred on the origin in the X/Z plane. Any of targetWidth / targetDepth /
+   * targetHeight may be supplied; the smallest resulting scale is used so the
+   * model always fits within every provided constraint.
+   */
+  _fitToGround(obj, { targetWidth, targetDepth, targetHeight } = {}) {
+    obj.updateMatrixWorld(true);
+    let box = new THREE.Box3().setFromObject(obj);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+
+    const candidates = [];
+    if (targetWidth && size.x > 1e-6) candidates.push(targetWidth / size.x);
+    if (targetDepth && size.z > 1e-6) candidates.push(targetDepth / size.z);
+    if (targetHeight && size.y > 1e-6) candidates.push(targetHeight / size.y);
+    const scale = candidates.length ? Math.min(...candidates) : 1;
+    obj.scale.setScalar(scale);
+
+    // Recompute the box after scaling to centre and ground the model.
+    obj.updateMatrixWorld(true);
+    box = new THREE.Box3().setFromObject(obj);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    obj.position.x -= center.x;
+    obj.position.z -= center.z;
+    obj.position.y -= box.min.y;
   }
 
   _createScoreDisplay() {
@@ -172,11 +444,42 @@ class Renderer3D {
     this.messageOverlay = el;
   }
 
+  _createChargeBar() {
+    const wrap = document.createElement('div');
+    wrap.id = 'charge-bar';
+    wrap.style.cssText = `position:absolute;bottom:64px;left:50%;transform:translateX(-50%);
+      width:220px;height:16px;background:rgba(0,0,0,0.5);border:2px solid rgba(255,255,255,0.4);
+      border-radius:10px;overflow:hidden;z-index:15;opacity:0;transition:opacity 0.12s;
+      pointer-events:none;`;
+    const fill = document.createElement('div');
+    fill.style.cssText = `height:100%;width:0%;border-radius:6px;
+      background:linear-gradient(90deg,#4CAF50,#FFC107,#F44336);transition:width 0.05s linear;`;
+    wrap.appendChild(fill);
+    this.container.appendChild(wrap);
+    this.chargeBar = wrap;
+    this.chargeBarFill = fill;
+  }
+
+  /**
+   * Update the charge bar from the local input's charge state.
+   * @param {{charging: boolean, power: number}} chargeState
+   */
+  updateChargeBar(chargeState) {
+    if (!this.chargeBar) return;
+    if (chargeState && chargeState.charging) {
+      this.chargeBar.style.opacity = '1';
+      this.chargeBarFill.style.width = `${Math.round(chargeState.power * 100)}%`;
+    } else {
+      this.chargeBar.style.opacity = '0';
+    }
+  }
+
   showMessage(text, durationMs = 2000) {
     this.messageOverlay.textContent = text;
     this.messageOverlay.style.opacity = '1';
     setTimeout(() => { this.messageOverlay.style.opacity = '0'; }, durationMs);
   }
+
 
   updateScore(score) {
     const POINT_LABELS = ['0', '15', '30', '40', 'AD'];

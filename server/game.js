@@ -17,15 +17,18 @@ export class Game {
     this.tickCount = 0;
     this.intervalId = null;
 
+    // Serve baseline: players stand just behind their baseline (|z| = length/2).
+    // COURT.length = 20, so the baseline is at z = ±10; stand a touch inside it.
     this.players = {
-      player1: { x: 0, z: -7, serving: true, hitCooldown: 0 },
-      player2: { x: 0, z: 7, serving: false, hitCooldown: 0 },
+      player1: { x: 0, z: -9, serving: true, hitCooldown: 0 },
+      player2: { x: 0, z: 9, serving: false, hitCooldown: 0 },
     };
 
     this.inputs = {
-      player1: { up: false, down: false, left: false, right: false, hit_flat: false, hit_topspin: false, hit_slice: false, hit_volley: false },
-      player2: { up: false, down: false, left: false, right: false, hit_flat: false, hit_topspin: false, hit_slice: false, hit_volley: false },
+      player1: { up: false, down: false, left: false, right: false, hit_flat: false, hit_topspin: false, hit_slice: false, hit_volley: false, power: 0 },
+      player2: { up: false, down: false, left: false, right: false, hit_flat: false, hit_topspin: false, hit_slice: false, hit_volley: false, power: 0 },
     };
+
 
     this.ball = null;
     this.scoring = createInitialState();
@@ -139,11 +142,12 @@ export class Game {
     this.ball.y = 1.0;
 
     const input = this.inputs[serverId];
+    const power = typeof input.power === 'number' ? input.power : 1;
     let serveHit = false;
-    if (input.hit_flat) { this._executeServe('flat', serverId, serveDir); serveHit = true; }
-    else if (input.hit_topspin) { this._executeServe('topspin', serverId, serveDir); serveHit = true; }
-    else if (input.hit_slice) { this._executeServe('slice', serverId, serveDir); serveHit = true; }
-    else if (input.hit_volley) { this._executeServe('flat', serverId, serveDir); serveHit = true; }
+    if (input.hit_flat) { this._executeServe('flat', serverId, serveDir, power); serveHit = true; }
+    else if (input.hit_topspin) { this._executeServe('topspin', serverId, serveDir, power); serveHit = true; }
+    else if (input.hit_slice) { this._executeServe('slice', serverId, serveDir, power); serveHit = true; }
+    else if (input.hit_volley) { this._executeServe('flat', serverId, serveDir, power); serveHit = true; }
 
     if (serveHit) {
       this.phase = 'playing';
@@ -151,19 +155,20 @@ export class Game {
     }
   }
 
-  _executeServe(hitType, serverId, serveDir) {
+  _executeServe(hitType, serverId, serveDir, power = 1) {
     const server = this.players[serverId];
     const opponentId = serverId === 'player1' ? 'player2' : 'player1';
     const opponent = this.players[opponentId];
     const targetX = opponent.x + (Math.random() - 0.5) * 3;
-    const targetZ = opponentId === 'player1' ? -COURT.length / 2 + 2 : COURT.length / 2 - 2;
+    // Serve aims into the opponent's service box (well inside the baseline).
+    const targetZ = opponentId === 'player1' ? -COURT.length / 4 : COURT.length / 4;
 
-    applyHit(this.ball, hitType, server.z, targetZ, targetX);
-    this.ball.vx *= 0.85;
-    this.ball.vz *= 0.85;
-    this.ball.vy = 5;
+    applyHit(this.ball, hitType, server.z, targetZ, targetX, power);
+    // Serves are hit from high up with a downward drive.
+    this.ball.vy = 3.5 + 2 * Math.max(0, Math.min(1, power));
     server.hitCooldown = 0.2;
   }
+
 
   _updatePlaying(dt) {
     if (!this.ball) return;
@@ -197,12 +202,14 @@ export class Game {
 
       if (hitType && checkRacketHit(this.ball, player.x, player.z, PLAYER_REACH)) {
         player.hitCooldown = 0.25;
+        const power = typeof input.power === 'number' ? input.power : 1;
         const isPlayer1 = id === 'player1';
         const opponentId = isPlayer1 ? 'player2' : 'player1';
         const opponent = this.players[opponentId];
         const targetZ = opponentId === 'player1' ? -COURT.length / 2 + 1 : COURT.length / 2 - 1;
-        applyHit(this.ball, hitType, player.z, targetZ, opponent.x + (Math.random() - 0.5) * 2);
+        applyHit(this.ball, hitType, player.z, targetZ, opponent.x + (Math.random() - 0.5) * 2, power);
       }
+
     }
 
     if (Math.abs(this.ball.vy) < 0.1 && this.ball.y <= COURT.groundY + 0.15) {

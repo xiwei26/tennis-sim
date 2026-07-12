@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tennis Game - Match</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- FBXLoader (and its fflate dependency) for the modelled court/players -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fflate/0.7.4/fflate.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
@@ -44,7 +47,8 @@
     <span class="label">Invite Code</span>
     <span id="room-code-badge"></span>
   </div>
-  <div id="controls-help">Move: WASD / Arrow Keys &nbsp;|&nbsp; J=Flat K=Topspin L=Slice U=Volley</div>
+  <div id="controls-help">Move: WASD / Arrow Keys &nbsp;|&nbsp; Hold J/K/L/U to charge, release to swing (J=Flat K=Topspin L=Slice U=Volley)</div>
+
 
   <script src="input.js"></script>
   <script src="network.js"></script>

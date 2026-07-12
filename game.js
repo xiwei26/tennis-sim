@@ -85,11 +85,16 @@ class GameApp {
 
   _startRenderLoop() {
     const fullLoop = () => {
+      // Reflect the local player's charge state on the charge bar.
+      if (this.input && this.renderer.updateChargeBar) {
+        this.renderer.updateChargeBar(this.input.getChargeState());
+      }
       this.renderer.render();
       this._animFrameId = requestAnimationFrame(fullLoop);
     };
     fullLoop();
   }
+
 
   destroy() {
     this.running = false;
