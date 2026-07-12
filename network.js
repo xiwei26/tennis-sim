@@ -32,6 +32,10 @@ class NetworkClient {
     this.send({ type: 'join_room', roomId });
   }
 
+  leaveRoom() {
+    this.send({ type: 'leave_room' });
+  }
+
   sendInput(keys) {
     this.send({ type: 'input', keys });
   }
@@ -69,6 +73,7 @@ class NetworkClient {
       room_joined: 'roomJoined', game_start: 'gameStart', countdown: 'countdown',
       game_begin: 'gameBegin', state: 'state', point: 'point',
       match_over: 'matchOver', error: 'error', serve_ready: 'serveReady',
+      opponent_left: 'opponentLeft',
     };
     const cb = this._callbacks[map[msg.type]];
     if (cb) cb(msg);

@@ -69,8 +69,15 @@ class GameApp {
     });
 
     this.network.on('disconnect', () => {
+      // If we're already handling an opponent-left countdown, don't overwrite it.
+      if (this._closing) return;
       this.running = false;
       this.renderer.showMessage('Disconnected from server', 5000);
+    });
+
+    this.network.on('opponentLeft', (msg) => {
+      this.running = false;
+      this._startRoomCloseCountdown(msg && msg.seconds ? msg.seconds : 5);
     });
 
     // Connect and join
@@ -81,6 +88,44 @@ class GameApp {
       this.renderer.showMessage('Connection failed!', 5000);
       console.error(err);
     }
+  }
+
+  /**
+   * Opponent disconnected: show a notice and a countdown, then return to lobby.
+   */
+  _startRoomCloseCountdown(seconds) {
+    if (this._closing) return;
+    this._closing = true;
+    let remaining = Math.max(1, Math.floor(seconds));
+    const show = () => {
+      this.renderer.showMessage(`\u5bf9\u65b9\u5df2\u9000\u51fa\uff0c\u623f\u95f4\u5c06\u5728 ${remaining} \u79d2\u540e\u5173\u95ed`, 1500);
+    };
+    show();
+    const tick = () => {
+      remaining -= 1;
+      if (remaining > 0) {
+        show();
+        setTimeout(tick, 1000);
+      } else {
+        this._returnToLobby();
+      }
+    };
+    setTimeout(tick, 1000);
+  }
+
+  /**
+   * Leave the room voluntarily (from the leave button).
+   */
+  leave() {
+    if (this._closing) return;
+    if (this.network) this.network.leaveRoom();
+    this._returnToLobby();
+  }
+
+  _returnToLobby() {
+    this._closing = true;
+    this.destroy();
+    window.location.href = 'index.html';
   }
 
   _startRenderLoop() {

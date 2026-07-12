@@ -50,7 +50,29 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) return;
     room.players = room.players.filter(p => p.id !== playerId);
-    if (room.players.length === 0) {
+
+    // Stop the running match — no point simulating with a missing player.
+    if (room.game) {
+      room.game.stop();
+      room.game = null;
+    }
+
+    if (room.players.length > 0) {
+      // A player left mid-match: tell whoever is left, then close the room.
+      if (room.closing) return;
+      room.closing = true;
+      this.broadcast(roomId, { type: 'opponent_left', seconds: 5 });
+      setTimeout(() => {
+        const r = this.rooms.get(roomId);
+        if (!r) return;
+        for (const p of r.players) {
+          if (p.ws.readyState === 1) p.ws.close();
+        }
+        this.rooms.delete(roomId);
+        console.log(`Room ${roomId} closed (opponent left)`);
+      }, 5000);
+    } else {
+      // Empty room — clean up shortly.
       setTimeout(() => {
         this.rooms.delete(roomId);
         console.log(`Room ${roomId} destroyed (empty)`);

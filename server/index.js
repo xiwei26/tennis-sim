@@ -79,6 +79,11 @@ wss.on('connection', (ws, req) => {
           room.game.handleInput(playerId, msg.keys);
         }
       }
+
+      if (msg.type === 'leave_room' && roomId) {
+        roomManager.removePlayer(roomId, playerId);
+        roomId = null; // prevent the close handler from removing again
+      }
     } catch (e) {
       // Silently ignore malformed messages
     }
