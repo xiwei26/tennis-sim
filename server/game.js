@@ -20,8 +20,8 @@ export class Game {
     // Serve baseline: players stand just behind their baseline (|z| = length/2).
     // COURT.length = 20, so the baseline is at z = ±10; stand a touch inside it.
     this.players = {
-      player1: { x: 0, z: -9, serving: true, hitCooldown: 0 },
-      player2: { x: 0, z: 9, serving: false, hitCooldown: 0 },
+      player1: { x: 0, z: -COURT.length / 2, serving: true, hitCooldown: 0 },
+      player2: { x: 0, z: COURT.length / 2, serving: false, hitCooldown: 0 },
     };
 
     this.inputs = {
@@ -116,12 +116,22 @@ export class Game {
       if (input.up) player.z -= PLAYER_SPEED * dt;
       if (input.down) player.z += PLAYER_SPEED * dt;
 
+      // During serve phase, the serving player is locked to the baseline
+      // and can only move laterally (left/right).
+      const serverId = this.scoring.servingPlayer === 1 ? 'player1' : 'player2';
+      const isServer = id === serverId && this.phase === 'serve';
+
       player.x = Math.max(-COURT.width / 2 + 0.5, Math.min(COURT.width / 2 - 0.5, player.x));
-      const backBoundary = COURT.length / 2 - 0.5;
-      const netBoundary = 0.5;
-      player.z = isPlayer1
-        ? Math.max(-backBoundary, Math.min(-netBoundary, player.z))
-        : Math.max(netBoundary, Math.min(backBoundary, player.z));
+      if (isServer) {
+        // Serve position: fixed on the baseline, lateral movement only.
+        player.z = isPlayer1 ? -COURT.length / 2 : COURT.length / 2;
+      } else {
+        const backBoundary = COURT.length / 2 - 0.5;
+        const netBoundary = 0.5;
+        player.z = isPlayer1
+          ? Math.max(-backBoundary, Math.min(-netBoundary, player.z))
+          : Math.max(netBoundary, Math.min(backBoundary, player.z));
+      }
     }
   }
 
@@ -135,7 +145,7 @@ export class Game {
     const serveDir = serverId === 'player1' ? 1 : -1;
 
     this.ball = {
-      x: server.x, y: 1.0, z: server.z + serveDir * 0.5,
+      x: server.x, y: 1.0, z: server.z + serveDir * 0.25,
       vx: 0, vy: 0, vz: 0, rotation: 0, spin: { x: 0, z: 0 },
     };
 
@@ -148,7 +158,7 @@ export class Game {
     const serveDir = serverId === 'player1' ? 1 : -1;
 
     this.ball.x = server.x;
-    this.ball.z = server.z + serveDir * 0.5;
+    this.ball.z = server.z + serveDir * 0.25;
     this.ball.y = 1.0;
 
     const input = this.inputs[serverId];
@@ -165,18 +175,63 @@ export class Game {
     }
   }
 
+  /**
+   * Resolve landing X from current facing intent:
+   * 1) left/right movement at contact, else
+   * 2) player position relative to the ball (contact side).
+   */
+  _resolveTargetX(playerId, baseX = 0) {
+    const input = this.inputs[playerId] || {};
+    const player = this.players[playerId];
+    let targetX = baseX;
+
+    if (input.left) {
+      targetX -= 2;
+    } else if (input.right) {
+      targetX += 2;
+    } else if (this.ball) {
+      const rel = player.x - this.ball.x;
+      targetX += Math.max(-2, Math.min(2, rel * 3));
+    }
+
+    return Math.max(-COURT.width / 2 + 0.5, Math.min(COURT.width / 2 - 0.5, targetX));
+  }
+
   _executeServe(hitType, serverId, serveDir, power = 1) {
     const server = this.players[serverId];
     const opponentId = serverId === 'player1' ? 'player2' : 'player1';
     const opponent = this.players[opponentId];
-    const targetX = opponent.x + (Math.random() - 0.5) * 3;
-    // Serve aims into the opponent's service box (well inside the baseline).
-    const targetZ = opponentId === 'player1' ? -COURT.length / 4 : COURT.length / 4;
+    const input = this.inputs[serverId];
+
+    // LATERAL AIMING: move direction, else contact side relative to ball
+    const targetX = this._resolveTargetX(serverId, opponent.x);
+
+    // DEPTH AIMING: use up/down to influence targetZ within service box
+    // Base target is the middle of the opponent's service box
+    let targetZ = opponentId === 'player1' ? -COURT.length / 4 : COURT.length / 4;
+    if (serverId === 'player1') {
+      // P1: down moves toward net -> shallower (smaller positive), up -> deeper (larger positive)
+      if (input.down) targetZ -= 2;
+      else if (input.up) targetZ += 2;
+    } else {
+      // P2: up moves toward net -> shallower (closer to 0), down -> deeper (more negative)
+      if (input.up) targetZ += 2;   // -5 -> -3 (shallower)
+      else if (input.down) targetZ -= 2; // -5 -> -7 (deeper)
+    }
 
     applyHit(this.ball, hitType, server.z, targetZ, targetX, power);
     this.lastHitter = serverId;
     // Serves are hit from high up with a downward drive.
-    this.ball.vy = 3.5 + 2 * Math.max(0, Math.min(1, power));
+    // From baseline (z = ±10) to the net (z = 0) the ball travels ~10 units.
+    // At forward speeds of ~13-16 the travel time is ~0.6-0.8 s.
+    // We need vy >= netHeight at the net, so y = 1.0 + vy*t - 10*t² > 1.2.
+    // With t~0.65 that means vy > ~6.6 minimum.
+    // Soft serve arcs up (vy ~7) to land deep; fast serve is flatter (vy ~9).
+    // Higher power = higher forward speed, so we actually want a slightly lower
+    // launch angle — but enough lift to still clear the net.
+    // vy ranges from ~8.5 (soft) down to ~7 (fast), but forward vz scales up.
+    const p = Math.max(0, Math.min(1, power));
+    this.ball.vy = 7.5 + 1.0 * (1 - p);   // 8.5 (soft) .. 7.5 (fast)
     server.hitCooldown = 0.2;
   }
 
@@ -216,9 +271,10 @@ export class Game {
         const power = typeof input.power === 'number' ? input.power : 1;
         const isPlayer1 = id === 'player1';
         const opponentId = isPlayer1 ? 'player2' : 'player1';
-        const opponent = this.players[opponentId];
         const targetZ = opponentId === 'player1' ? -COURT.length / 2 + 1 : COURT.length / 2 - 1;
-        applyHit(this.ball, hitType, player.z, targetZ, opponent.x + (Math.random() - 0.5) * 2, power);
+        // Aim X from move direction at contact, else player-vs-ball contact side.
+        const targetX = this._resolveTargetX(id, 0);
+        applyHit(this.ball, hitType, player.z, targetZ, targetX, power);
         this.lastHitter = id;
       }
 

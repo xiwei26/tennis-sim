@@ -437,13 +437,26 @@ class Renderer3D {
    */
   _applyBaseColorTexture(obj, textureUrl) {
     const tex = new THREE.TextureLoader().load(textureUrl);
-    tex.flipY = false; // FBX UVs use the glTF convention here
+    // Tripo FBX UVs are authored for the standard Three/OpenGL image origin
+    // (top-left). Keeping flipY=true avoids clothing/pattern seams looking
+    // shifted or upside-down when rebinding the extracted basecolor map.
+    tex.flipY = true;
     tex.encoding = THREE.sRGBEncoding;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
     obj.traverse((child) => {
       if (!child.isMesh || !child.material) return;
       const mats = Array.isArray(child.material) ? child.material : [child.material];
       mats.forEach((m) => {
         if (!m) return;
+        // Preserve any UV transform the FBXLoader already decoded onto an
+        // existing map (scale/offset), then swap in the external albedo.
+        if (m.map) {
+          tex.repeat.copy(m.map.repeat);
+          tex.offset.copy(m.map.offset);
+          tex.center.copy(m.map.center);
+          tex.rotation = m.map.rotation;
+        }
         m.map = tex;
         if (m.color) m.color.setHex(0xffffff);
         m.needsUpdate = true;

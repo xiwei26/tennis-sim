@@ -25,6 +25,7 @@ test('server applies each websocket input only to its assigned player', () => {
 
 test('server keeps both players on their own side of the net', () => {
   const game = new Game('TEST', () => {});
+  game.phase = 'playing';
   game.players.player1.z = -0.6;
   game.players.player2.z = 0.6;
   // With the fixed camera, moving toward the net is "down" for player1
@@ -89,4 +90,46 @@ test('simplified tiebreak ends the set at 7-6', () => {
   assert.equal(next.p2Games, 6);
   assert.equal(next.setWinner, 1);
   assert.equal(next.matchWinner, 1);
+});
+
+function readyRallyHit(game, playerId, { playerX = 0, ballX = 0, input = {} } = {}) {
+  const player = game.players[playerId];
+  player.x = playerX;
+  player.z = playerId === 'player1' ? -8 : 8;
+  player.hitCooldown = 0;
+  game.running = true;
+  game.phase = 'playing';
+  game.ball = {
+    x: ballX, y: 1.0, z: player.z + (playerId === 'player1' ? 0.2 : -0.2),
+    vx: 0, vy: 0, vz: 0, rotation: 0, spin: { x: 0, z: 0 },
+  };
+  game.handleInput(playerId, neutralInput({ hit_flat: true, power: 1, ...input }));
+}
+
+test('rally hit aims left when the hitter is holding left', () => {
+  const game = new Game('TEST', () => {});
+  readyRallyHit(game, 'player1', { playerX: 0, ballX: 0, input: { left: true } });
+
+  game._updatePlaying(1 / 60);
+
+  assert.ok(game.ball.vx < 0, `expected leftward vx, got ${game.ball.vx}`);
+});
+
+test('rally hit aims right when the hitter is holding right', () => {
+  const game = new Game('TEST', () => {});
+  readyRallyHit(game, 'player1', { playerX: 0, ballX: 0, input: { right: true } });
+
+  game._updatePlaying(1 / 60);
+
+  assert.ok(game.ball.vx > 0, `expected rightward vx, got ${game.ball.vx}`);
+});
+
+test('rally hit uses player-to-ball offset when no lateral move is held', () => {
+  const game = new Game('TEST', () => {});
+  // Player stands left of the ball → aim left (negative x)
+  readyRallyHit(game, 'player1', { playerX: -0.6, ballX: 0, input: {} });
+
+  game._updatePlaying(1 / 60);
+
+  assert.ok(game.ball.vx < 0, `expected leftward aim from left-side contact, got ${game.ball.vx}`);
 });
