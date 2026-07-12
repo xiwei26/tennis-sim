@@ -23,7 +23,7 @@ class Renderer3D {
     // Camera — fixed oblique view
     const aspect = this.container.clientWidth / this.container.clientHeight;
     this.camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 100);
-    this.camera.position.set(0, 14, 12);
+    this.camera.position.set(0, 22, 20);
     this.camera.lookAt(0, 0, 0);
 
     // Renderer
@@ -31,16 +31,21 @@ class Renderer3D {
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Correct colour space + gentle tone mapping so lit surfaces don't blow
+    // out to pure white (the FBX court materials are fairly bright already).
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.container.appendChild(this.renderer.domElement);
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
     this.scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
     dirLight.position.set(10, 20, 5);
     dirLight.castShadow = true;
     this.scene.add(dirLight);
-    const fillLight = new THREE.DirectionalLight(0x88aaff, 0.3);
+    const fillLight = new THREE.DirectionalLight(0x88aaff, 0.2);
     fillLight.position.set(-5, 10, -5);
     this.scene.add(fillLight);
 
@@ -297,10 +302,9 @@ class Renderer3D {
     shadow.position.set(0, 0.01, 0);
     group.add(shadow);
 
-    // Player 2 faces the opposite direction (toward negative Z)
-    if (id === 'player2') {
-      group.rotation.y = Math.PI;
-    }
+    // Both source FBX files face along -X. Turn player 1 toward +Z (the net)
+    // and player 2 toward -Z so they face one another across the court.
+    group.rotation.y = Math.PI / 2 + (id === 'player2' ? Math.PI : 0);
 
     this.scene.add(group);
     this.players[id] = { group, body, racket: racketGroup };
@@ -323,28 +327,92 @@ class Renderer3D {
       ASSET_BASE + '003_Tennis_court.fbx',
       (obj) => {
         this._prepareModel(obj, { receiveShadow: true });
-        // Fit the model so its footprint matches the logical 10 x 20 court.
-        this._fitToGround(obj, { targetWidth: 10, targetDepth: 20 });
+        // Align the actual painted court lines with the logical 10 x 20 world.
+        // Fitting the full FBX footprint would include fences and benches and
+        // shrink the playable surface to roughly 5.4 x 11.7 units.
+        this._fitCourtModel(obj);
         this.scene.add(obj);
         this.courtModel = obj;
-        // Hide the procedural court once the model is in place.
+        // Hide the procedural fallbacks once the complete court model is ready.
         if (this.courtGroup) this.courtGroup.visible = false;
+        if (this.netGroup) this.netGroup.visible = false;
       },
       undefined,
       (err) => console.warn('[render] Failed to load court model:', err)
     );
 
     // --- Players ---
-    this._loadPlayerModel(ASSET_BASE + 'red.fbx', 'player1');
-    this._loadPlayerModel(ASSET_BASE + 'blue.fbx', 'player2');
+    // The Tripo-exported FBX embeds its base-colour map, but r128's FBXLoader
+    // does not reliably apply embedded textures — so we extracted them to
+    // ./assets and bind them explicitly after the mesh loads.
+    this._loadPlayerModel(ASSET_BASE + 'red.fbx', 'player1', ASSET_BASE + 'red_basecolor.jpg');
+    this._loadPlayerModel(ASSET_BASE + 'blue.fbx', 'player2', ASSET_BASE + 'blue_basecolor.jpg');
   }
 
-  _loadPlayerModel(url, id) {
+  /** Return world-space bounds for geometry groups using a named material. */
+  _getMaterialBounds(root, materialName) {
+    const bounds = new THREE.Box3();
+    const point = new THREE.Vector3();
+    const wanted = materialName.trim().toLowerCase();
+    root.updateMatrixWorld(true);
+
+    root.traverse((child) => {
+      if (!child.isMesh || !child.geometry) return;
+      const geometry = child.geometry;
+      const position = geometry.getAttribute('position');
+      if (!position) return;
+      const index = geometry.index;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      const groups = geometry.groups.length ? geometry.groups : [{
+        start: 0,
+        count: index ? index.count : position.count,
+        materialIndex: 0,
+      }];
+
+      groups.forEach((group) => {
+        const material = materials[group.materialIndex || 0];
+        if (!material || material.name.trim().toLowerCase() !== wanted) return;
+        const limit = Math.min(group.start + group.count, index ? index.count : position.count);
+        for (let offset = group.start; offset < limit; offset++) {
+          const vertexIndex = index ? index.getX(offset) : offset;
+          point.fromBufferAttribute(position, vertexIndex).applyMatrix4(child.matrixWorld);
+          bounds.expandByPoint(point);
+        }
+      });
+    });
+
+    return bounds.isEmpty() ? null : bounds;
+  }
+
+  /** Fit the imported court using its painted boundary lines, not its fences. */
+  _fitCourtModel(obj) {
+    let lineBounds = this._getMaterialBounds(obj, 'court line');
+    if (!lineBounds) {
+      this._fitToGround(obj, { targetWidth: 10, targetDepth: 20 });
+      return;
+    }
+
+    const size = new THREE.Vector3();
+    lineBounds.getSize(size);
+    const scale = Math.min(10 / size.x, 20 / size.z);
+    obj.scale.setScalar(scale);
+    obj.updateMatrixWorld(true);
+
+    lineBounds = this._getMaterialBounds(obj, 'court line');
+    const center = new THREE.Vector3();
+    lineBounds.getCenter(center);
+    obj.position.x -= center.x;
+    obj.position.z -= center.z;
+    obj.position.y -= lineBounds.min.y;
+  }
+
+  _loadPlayerModel(url, id, textureUrl) {
     const loader = new THREE.FBXLoader();
     loader.load(
       url,
       (obj) => {
         this._prepareModel(obj, { castShadow: true });
+        if (textureUrl) this._applyBaseColorTexture(obj, textureUrl);
         // Scale the model to a believable player height (~1.5 units) and drop
         // its feet onto the ground plane.
         this._fitToGround(obj, { targetHeight: 1.5 });
@@ -359,19 +427,50 @@ class Renderer3D {
     );
   }
 
+  /**
+   * Bind an external base-colour (albedo) map onto every mesh of a model and
+   * reset the diffuse colour to white so the texture shows at full strength.
+   */
+  _applyBaseColorTexture(obj, textureUrl) {
+    const tex = new THREE.TextureLoader().load(textureUrl);
+    tex.flipY = false; // FBX UVs use the glTF convention here
+    tex.encoding = THREE.sRGBEncoding;
+    obj.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((m) => {
+        if (!m) return;
+        m.map = tex;
+        if (m.color) m.color.setHex(0xffffff);
+        m.needsUpdate = true;
+      });
+    });
+  }
+
   /** Enable lighting/shadows on every mesh of a loaded model. */
   _prepareModel(obj, { castShadow = false, receiveShadow = false } = {}) {
+    const embeddedLights = [];
     obj.traverse((child) => {
+      // The court FBX contains an "Area" light exported as a PointLight with
+      // intensity 500. It overwhelms the scene after the model is scaled, so
+      // imported models must use the renderer's controlled scene lights only.
+      if (child.isLight) {
+        embeddedLights.push(child);
+        return;
+      }
       if (child.isMesh) {
         child.castShadow = castShadow;
         child.receiveShadow = receiveShadow;
-        // FBX sometimes ships materials with no side set; make sure thin
-        // geometry is not culled.
+        // Render both faces: the Tripo meshes have inconsistent normals, and
+        // FrontSide would cull the back faces, tearing holes in the model.
         if (child.material) {
           const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach((m) => { if (m) m.side = THREE.FrontSide; });
+          mats.forEach((m) => { if (m) m.side = THREE.DoubleSide; });
         }
       }
+    });
+    embeddedLights.forEach((light) => {
+      if (light.parent) light.parent.remove(light);
     });
   }
 
@@ -431,6 +530,22 @@ class Renderer3D {
     p2.style.cssText = `color:#1E88E5;white-space:nowrap;text-align:center;`;
     p2.textContent = 'PLAYER 2 (ARROWS + J/K/L/U)';
     labels.appendChild(p2);
+    this.playerLabels = { player1: p1, player2: p2 };
+  }
+
+  setLocalPlayer(playerId) {
+    if (!this.playerLabels) return;
+    const configs = {
+      player1: { number: 1, controls: 'WASD + J/K/L/U' },
+      player2: { number: 2, controls: 'ARROWS + J/K/L/U' },
+    };
+    Object.entries(this.playerLabels).forEach(([id, label]) => {
+      const config = configs[id];
+      const isLocal = id === playerId;
+      label.textContent = `${isLocal ? 'YOU' : 'OPPONENT'} · PLAYER ${config.number} (${config.controls})`;
+      label.style.opacity = isLocal ? '1' : '0.45';
+      label.style.fontWeight = isLocal ? '700' : '400';
+    });
   }
 
   _createMessageOverlay() {

@@ -62,4 +62,22 @@ for (const file of rendererFiles) {
     assert.doesNotMatch(js, /transform:translateX\(-120px\)/);
     assert.doesNotMatch(js, /transform:translateX\(20px\)/);
   });
+
+  test(`${file} excludes embedded FBX lights from scene lighting`, () => {
+    const js = read(file);
+
+    assert.match(js, /const embeddedLights = \[\];/);
+    assert.match(js, /if \(child\.isLight\) \{/);
+    assert.match(js, /embeddedLights\.forEach\(\(light\) => \{/);
+    assert.match(js, /light\.parent\.remove\(light\)/);
+  });
+
+  test(`${file} aligns the imported court and player models to gameplay coordinates`, () => {
+    const js = read(file);
+
+    assert.match(js, /this\._fitCourtModel\(obj\)/);
+    assert.match(js, /this\._getMaterialBounds\(obj, 'court line'\)/);
+    assert.match(js, /group\.rotation\.y = Math\.PI \/ 2 \+ \(id === 'player2' \? Math\.PI : 0\)/);
+    assert.match(js, /if \(this\.netGroup\) this\.netGroup\.visible = false/);
+  });
 }

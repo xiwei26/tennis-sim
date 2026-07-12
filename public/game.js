@@ -23,6 +23,14 @@ class GameApp {
     // Register callbacks
     this.network.on('roomJoined', (msg) => {
       this.playerId = msg.playerId;
+      this.input.setPlayerId(msg.playerId);
+      if (this.renderer.setLocalPlayer) this.renderer.setLocalPlayer(msg.playerId);
+      const controlsHelp = document.getElementById('controls-help');
+      if (controlsHelp) {
+        const moveKeys = msg.playerId === 'player1' ? 'WASD' : 'Arrow Keys';
+        const playerNumber = msg.playerId === 'player1' ? '1' : '2';
+        controlsHelp.textContent = `You are Player ${playerNumber} | Move: ${moveKeys} | Hold J/K/L/U to charge, release to swing`;
+      }
       console.log('Joined as:', this.playerId);
       this.renderer.showMessage('Waiting for opponent...', 5000);
     });
