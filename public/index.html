@@ -3,219 +3,118 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Tennis Battle</title>
+  <title>Tennis Battle — Multiplayer Lobby</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', -apple-system, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #fff;
-    }
-    .container {
-      background: rgba(255,255,255,0.08);
-      backdrop-filter: blur(12px);
-      border-radius: 20px;
-      padding: 48px;
-      text-align: center;
-      border: 1px solid rgba(255,255,255,0.1);
-      max-width: 500px;
-      width: 90%;
-    }
-    h1 { font-size: 36px; margin-bottom: 8px; letter-spacing: 2px; }
-    h1 span.red { color: #E53935; }
-    h1 span.blue { color: #1E88E5; }
-    .subtitle { color: rgba(255,255,255,0.6); margin-bottom: 32px; font-size: 14px; }
-    .btn {
-      display: block; width: 100%; padding: 16px; border: 2px solid rgba(255,255,255,0.2);
-      border-radius: 12px; background: rgba(255,255,255,0.06);
-      color: #fff; font-size: 18px; cursor: pointer; transition: all 0.2s;
-      margin-bottom: 16px; font-weight: 600;
-    }
-    .btn:hover { background: rgba(255,255,255,0.15); border-color: #fff; }
-    .btn-primary { background: #2E7D32; border-color: #2E7D32; }
-    .btn-primary:hover { background: #388E3C; border-color: #388E3C; }
-    .input-group {
-      display: flex; gap: 12px; margin-bottom: 16px;
-    }
-    .input-group input {
-      flex: 1; min-width: 0; padding: 16px; border: 2px solid rgba(255,255,255,0.2);
-      border-radius: 12px; background: rgba(255,255,255,0.06);
-      color: #fff; font-size: 18px; text-align: center;
-      text-transform: uppercase; letter-spacing: 6px; outline: none;
-      font-weight: 600;
-    }
-    .input-group input:focus { border-color: #2E7D32; }
-    .input-group input::placeholder {
-      text-transform: none; letter-spacing: 1px; color: rgba(255,255,255,0.3);
-    }
-    .input-group .btn { flex: 0 0 auto; width: auto; padding: 16px 24px; margin-bottom: 0; white-space: nowrap; }
-    .room-code {
-      background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px;
-      margin: 16px 0; display: none;
-    }
-    .room-code .code {
-      font-size: 48px; letter-spacing: 10px; font-weight: bold;
-      color: #D4E157; font-family: 'Courier New', monospace;
-    }
-    .room-code .hint { color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 13px; }
-    .status { margin-top: 16px; padding: 12px; border-radius: 8px; display: none; }
-    .status.error { display: block; background: rgba(229,57,53,0.2); color: #E53935; }
-    .status.info { display: block; background: rgba(46,125,50,0.2); color: #81C784; }
-    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 24px 0; }
-    .controls-info {
-      margin-top: 20px; font-size: 12px; color: rgba(255,255,255,0.4);
-    }
-    .controls-info kbd {
-      background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;
-      font-family: 'Courier New', monospace; font-size: 12px;
-    }
-    @media (max-width: 520px) {
-      .container { padding: 32px 20px; }
-      .input-group { flex-direction: column; }
-      .input-group .btn { width: 100%; }
-    }
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; }
+    body { min-width: 320px; min-height: 100vh; overflow-x: hidden; color: #edf5ff; font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif; background: #020814; }
+    button, input { font: inherit; }
+    .lobby { position: relative; isolation: isolate; min-height: 100vh; padding: 26px 48px 22px; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; background: #020814; }
+    .lobby::before, .lobby::after { content: ""; position: absolute; pointer-events: none; }
+    .lobby::before { z-index: -2; inset: 0; background: radial-gradient(ellipse 25% 11% at 50% 88%, rgba(117, 196, 84, .24), transparent 72%), radial-gradient(ellipse 18% 18% at 9% 36%, rgba(176, 41, 58, .28), transparent 66%), radial-gradient(ellipse 18% 18% at 91% 36%, rgba(28, 111, 207, .28), transparent 66%), radial-gradient(circle at 13% 13%, rgba(237, 250, 255, .18) 0 1px, transparent 1.8px), radial-gradient(circle at 87% 13%, rgba(237, 250, 255, .18) 0 1px, transparent 1.8px), linear-gradient(166deg, #080f20 0 36%, #102b2c 36.2% 64%, #071426 64.2% 100%); opacity: .98; transform: scale(1.015); }
+    .lobby::after { z-index: -1; inset: 0; background: linear-gradient(180deg, rgba(2, 8, 20, .1) 0%, rgba(2, 8, 20, .35) 42%, rgba(2, 8, 20, .88) 100%), linear-gradient(90deg, rgba(2, 8, 20, .58), transparent 30%, transparent 70%, rgba(2, 8, 20, .58)); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { display: inline-flex; align-items: center; gap: 12px; letter-spacing: .12em; font-weight: 800; font-size: 15px; }
+    .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid rgba(209, 255, 187, .46); border-radius: 10px; color: #d4ff71; background: rgba(10, 30, 30, .48); box-shadow: inset 0 0 16px rgba(136, 217, 130, .12); font-family: "Courier New", monospace; font-size: 19px; line-height: 1; }
+    .topbar-actions { display: flex; align-items: center; gap: 16px; }
+    .online { display: inline-flex; align-items: center; gap: 7px; color: #cbe8ca; font: 700 11px/1 "Courier New", monospace; letter-spacing: .13em; }
+    .online i { width: 7px; height: 7px; border-radius: 50%; background: #88d982; box-shadow: 0 0 11px #88d982; }
+    .help-btn { min-height: 37px; padding: 0 14px; border: 1px solid rgba(222, 237, 255, .28); border-radius: 9px; color: #edf5ff; cursor: pointer; background: rgba(7, 17, 35, .5); font-size: 13px; font-weight: 650; transition: .2s ease; }
+    .help-btn:hover { background: rgba(232, 244, 255, .13); border-color: rgba(235, 248, 255, .6); }
+    .scene { display: grid; place-items: center; padding: 46px 0 30px; }
+    .container { width: min(100%, 590px); padding: 42px; text-align: center; position: relative; border: 1px solid rgba(218, 237, 255, .22); border-radius: 22px; background: linear-gradient(145deg, rgba(19, 38, 63, .78), rgba(4, 14, 31, .73)); box-shadow: 0 24px 80px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .12); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+    .container::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(120deg, rgba(255,255,255,.08), transparent 32%); }
+    .match-label { color: #d4e157; font: 700 11px/1.2 "Courier New", monospace; letter-spacing: .2em; }
+    h1 { margin-top: 15px; font-size: clamp(35px, 5vw, 54px); line-height: .98; letter-spacing: -.045em; font-weight: 800; }
+    .subtitle { max-width: 410px; margin: 17px auto 30px; color: #bfccdc; font-size: 15px; line-height: 1.62; }
+    .btn { width: 100%; min-height: 57px; border: 1px solid rgba(218, 237, 255, .3); border-radius: 12px; color: #ecf6ff; background: rgba(5, 17, 34, .48); cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: .085em; transition: transform .16s ease, background .16s ease, border-color .16s ease; }
+    .btn:hover { transform: translateY(-2px); background: rgba(224, 244, 255, .15); border-color: rgba(232, 246, 255, .8); }
+    .btn:focus-visible, .help-btn:focus-visible, input:focus-visible { outline: 3px solid rgba(212, 225, 87, .58); outline-offset: 3px; }
+    .btn:disabled { cursor: wait; opacity: .7; transform: none; }
+    .btn-primary { border-color: #6ec86e; color: #04260e; background: linear-gradient(180deg, #a9ed98, #69c76a); box-shadow: 0 9px 26px rgba(69, 194, 100, .26); }
+    .btn-primary:hover { border-color: #d2ffc6; background: linear-gradient(180deg, #bbf7aa, #7bd57c); }
+    .host-note { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 11px; color: #aebccc; font: 700 10px/1 "Courier New", monospace; letter-spacing: .12em; }
+    .host-note::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #d4e157; box-shadow: 0 0 10px #d4e157; }
+    .divider { display: flex; align-items: center; gap: 14px; border: 0; margin: 30px 0 20px; color: #8494a7; font: 700 10px/1 "Courier New", monospace; letter-spacing: .15em; }
+    .divider::before, .divider::after { content: ""; height: 1px; flex: 1; background: rgba(221, 238, 255, .15); }
+    .input-group { display: flex; gap: 11px; }
+    .input-group input { min-width: 0; flex: 1; height: 57px; padding: 0 18px; border: 1px solid rgba(220, 237, 255, .28); border-radius: 12px; color: #efffd8; background: rgba(1, 9, 21, .55); text-align: center; text-transform: uppercase; outline: none; font: 700 20px/1 "Courier New", monospace; letter-spacing: .42em; transition: .2s ease; }
+    .input-group input:focus { border-color: #a3f69c; box-shadow: 0 0 0 3px rgba(136, 217, 130, .16), inset 0 0 22px rgba(136, 217, 130, .06); }
+    .input-group input::placeholder { color: #8090a4; font-size: 14px; letter-spacing: .18em; }
+    .input-group .btn { flex: 0 0 auto; width: 166px; }
+    .room-code { display: none; margin-top: 18px; padding: 20px; border: 1px solid rgba(212, 225, 87, .32); border-radius: 13px; background: rgba(2, 12, 23, .64); }
+    .room-code p:first-child { color: #b6c6d6; font-size: 12px; }
+    .room-code .code { margin: 7px 0 8px; color: #d4e157; font: 700 clamp(32px, 7vw, 45px)/1 "Courier New", monospace; letter-spacing: .22em; }
+    .room-code .hint { color: #9cb1c4; font-size: 12px; }
+    .status { display: none; margin-top: 16px; padding: 11px 13px; border: 1px solid transparent; border-radius: 9px; font-size: 12px; line-height: 1.4; }
+    .status.error { display: block; border-color: rgba(255, 180, 171, .34); color: #ffc6be; background: rgba(147, 0, 10, .24); }
+    .status.info { display: block; border-color: rgba(136, 217, 130, .34); color: #caffbe; background: rgba(27, 109, 36, .24); }
+    .controls-info { display: flex; justify-content: center; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 30px; color: #b7c5d4; font-size: 12px; }
+    .controls-label { color: #7e91a5; font: 700 10px/1 "Courier New", monospace; letter-spacing: .14em; }
+    .control-group { display: inline-flex; align-items: center; gap: 5px; }
+    .controls-info kbd { min-width: 22px; padding: 4px 6px; border: 1px solid rgba(223, 239, 255, .26); border-radius: 5px; background: rgba(5, 14, 29, .55); color: #edf7ff; font: 700 11px/1 "Courier New", monospace; box-shadow: inset 0 -1px rgba(0, 0, 0, .48); }
+    .footer { text-align: center; color: rgba(193, 209, 224, .66); font: 700 10px/1.4 "Courier New", monospace; letter-spacing: .12em; }
+    .help-dialog { width: min(92vw, 510px); border: 1px solid rgba(224, 240, 255, .22); border-radius: 18px; color: #eaf4ff; background: rgba(5, 16, 33, .96); box-shadow: 0 25px 90px rgba(0, 0, 0, .62); padding: 0; }
+    .help-dialog::backdrop { background: rgba(0, 5, 15, .72); backdrop-filter: blur(5px); }
+    .dialog-inner { padding: 30px; }.dialog-title { font-size: 25px; font-weight: 800; letter-spacing: -.03em; }.dialog-copy { margin-top: 10px; color: #b9c9d7; line-height: 1.6; font-size: 14px; }
+    .help-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 22px 0; }.help-grid div { padding: 13px; border: 1px solid rgba(221, 237, 255, .14); border-radius: 10px; background: rgba(255,255,255,.04); font-size: 13px; }.help-grid span { display: block; margin-bottom: 5px; color: #d4e157; font: 700 10px/1 "Courier New", monospace; letter-spacing: .1em; }
+    @media (max-width: 680px) { .lobby { padding: 20px 18px 18px; }.topbar { align-items: flex-start; }.topbar-actions { gap: 10px; }.online { display: none; }.scene { padding: 32px 0 22px; }.container { padding: 32px 22px; border-radius: 18px; }.input-group { flex-direction: column; }.input-group .btn { flex-basis: 57px; }.controls-info { margin-top: 25px; } }
+    @media (max-width: 400px) { .brand { font-size: 12px; gap: 8px; }.brand-mark { width: 30px; height: 30px; }.help-btn { padding: 0 10px; font-size: 12px; } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1><span class="red">●</span> TENNIS <span class="blue">●</span></h1>
-    <p class="subtitle">3D Multiplayer Online Tennis</p>
-
-    <button class="btn btn-primary" id="create-btn">Create New Room</button>
-
-    <hr class="divider">
-
-    <div class="input-group">
-      <input type="text" id="room-code-input" placeholder="Room Code" maxlength="5">
-      <button class="btn" id="join-btn">Join</button>
-    </div>
-
-    <div class="room-code" id="room-display">
-      <p style="color:rgba(255,255,255,0.6);margin-bottom:4px;">Share this code:</p>
-      <div class="code" id="room-code-value">ABC12</div>
-      <p class="hint">Waiting for opponent to join...</p>
-    </div>
-
-    <div class="status" id="status-message"></div>
-
-    <hr class="divider">
-
-    <div class="controls-info">
-      <kbd>WASD</kbd> / <kbd>↑↓←→</kbd> Move &nbsp;|&nbsp;
-      <kbd>J</kbd> Flat <kbd>K</kbd> Topspin <kbd>L</kbd> Slice <kbd>U</kbd> Volley
-    </div>
-  </div>
-
+  <main class="lobby">
+    <header class="topbar"><div class="brand" aria-label="Tennis Battle"><span class="brand-mark">T</span><span>TENNIS BATTLE</span></div><div class="topbar-actions"><span class="online"><i></i>ONLINE</span><button type="button" class="help-btn" id="help-btn">How to Play</button></div></header>
+    <section class="scene" aria-labelledby="lobby-title"><div class="container">
+      <p class="match-label">MULTIPLAYER MATCH</p><h1 id="lobby-title">ENTER THE COURT</h1><p class="subtitle">Start a new private match or join an existing room with a friend.</p>
+      <button class="btn btn-primary" id="create-btn">CREATE NEW ROOM</button><p class="host-note">HOST A MATCH</p>
+      <div class="divider">OR JOIN A FRIEND</div>
+      <div class="input-group"><input type="text" id="room-code-input" placeholder="A B C 1 2" aria-label="Room code" maxlength="5" autocomplete="off"><button class="btn" id="join-btn">JOIN MATCH</button></div>
+      <div class="room-code" id="room-display"><p>SHARE THIS CODE</p><div class="code" id="room-code-value">ABC12</div><p class="hint">Waiting for your opponent to join…</p></div><div class="status" id="status-message" role="status"></div>
+      <div class="controls-info" aria-label="Quick controls"><span class="controls-label">QUICK CONTROLS</span><span class="control-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> MOVE</span><span class="control-group"><kbd>J</kbd> FLAT</span><span class="control-group"><kbd>K</kbd> TOPSPIN</span><span class="control-group"><kbd>L</kbd> SLICE</span><span class="control-group"><kbd>U</kbd> VOLLEY</span></div>
+    </div></section>
+    <footer class="footer">REAL-TIME 3D TENNIS <span aria-hidden="true">•</span> LOW LATENCY MATCHMAKING</footer>
+  </main>
+  <dialog class="help-dialog" id="help-dialog" aria-labelledby="help-title"><div class="dialog-inner"><h2 class="dialog-title" id="help-title">How to Play</h2><p class="dialog-copy">Create a room and share its five-character code. Your match starts as soon as your opponent joins.</p><div class="help-grid"><div><span>MOVE</span>WASD or arrow keys</div><div><span>HIT</span>Hold a shot key to charge</div><div><span>SERVE</span>Hit from behind baseline</div><div><span>WIN</span>First to six games takes the set</div></div><button class="btn btn-primary" id="help-close" type="button">GOT IT</button></div></dialog>
   <script>
     const serverIP = '138.2.47.126';
     const serverOrigin = `http://${serverIP}:5000`;
     const localServerHosts = new Set([`${serverIP}:5000`, 'localhost:5000', '127.0.0.1:5000']);
     const serverApi = localServerHosts.has(window.location.host) ? window.location.origin : serverOrigin;
     const isSecureStaticPage = window.location.protocol === 'https:' && serverApi.startsWith('http:');
-
     let currentRoomId = null;
-    let ws = null;
-
     const createBtn = document.getElementById('create-btn');
     const joinBtn = document.getElementById('join-btn');
     const roomInput = document.getElementById('room-code-input');
     const roomDisplay = document.getElementById('room-display');
     const roomCodeValue = document.getElementById('room-code-value');
     const statusMsg = document.getElementById('status-message');
-
-    function showStatus(msg, type = 'info') {
-      statusMsg.className = 'status ' + type;
-      statusMsg.textContent = msg;
-    }
-
-    function hideStatus() {
-      statusMsg.className = 'status';
-    }
-
-    function continueOnGameServer(params = {}) {
-      const url = new URL(serverOrigin + '/');
-      for (const [key, value] of Object.entries(params)) {
-        if (value) url.searchParams.set(key, value);
-      }
-      window.location.href = url.toString();
-    }
-
+    const helpDialog = document.getElementById('help-dialog');
+    function showStatus(msg, type = 'info') { statusMsg.className = 'status ' + type; statusMsg.textContent = msg; }
+    function hideStatus() { statusMsg.className = 'status'; }
+    function continueOnGameServer(params = {}) { const url = new URL(serverOrigin + '/'); for (const [key, value] of Object.entries(params)) if (value) url.searchParams.set(key, value); window.location.href = url.toString(); }
     createBtn.addEventListener('click', async () => {
-      if (isSecureStaticPage) {
-        showStatus('Opening game server...', 'info');
-        continueOnGameServer({ action: 'create' });
-        return;
-      }
-
-      createBtn.disabled = true;
-      createBtn.textContent = 'Creating...';
-      hideStatus();
-
-      try {
-        const resp = await fetch(serverApi + '/api/rooms', { method: 'POST' });
-        if (!resp.ok) return resp.json().then(d => { throw new Error(d.error || 'Failed to create room'); });
-        const data = await resp.json();
-        currentRoomId = data.roomId;
-        roomCodeValue.textContent = currentRoomId;
-        roomDisplay.style.display = 'block';
-        showStatus('Room created! Share the code with your opponent.', 'info');
-        connectAndJoin(currentRoomId);
-      } catch (err) {
-        showStatus('Failed to create room: ' + err.message, 'error');
-      }
-
-      createBtn.disabled = false;
-      createBtn.textContent = 'Create New Room';
+      if (isSecureStaticPage) { showStatus('Opening game server…', 'info'); continueOnGameServer({ action: 'create' }); return; }
+      createBtn.disabled = true; createBtn.textContent = 'CREATING…'; hideStatus();
+      try { const resp = await fetch(serverApi + '/api/rooms', { method: 'POST' }); if (!resp.ok) return resp.json().then(d => { throw new Error(d.error || 'Failed to create room'); }); const data = await resp.json(); currentRoomId = data.roomId; roomCodeValue.textContent = currentRoomId; roomDisplay.style.display = 'block'; showStatus('Room created. Share the code with your opponent.', 'info'); connectAndJoin(currentRoomId); }
+      catch (err) { showStatus('Failed to create room: ' + err.message, 'error'); }
+      createBtn.disabled = false; createBtn.textContent = 'CREATE NEW ROOM';
     });
-
     joinBtn.addEventListener('click', () => {
       const code = roomInput.value.trim().toUpperCase();
-      if (code.length < 3) {
-        showStatus('Please enter a valid room code', 'error');
-        return;
-      }
-      hideStatus();
-
-      if (isSecureStaticPage) {
-        showStatus('Opening game server...', 'info');
-        continueOnGameServer({ action: 'join', room: code });
-        return;
-      }
-
-      fetch(serverApi + '/api/rooms/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId: code }),
-      }).then(resp => {
-        if (!resp.ok) return resp.json().then(d => { throw new Error(d.error); });
-        return resp.json();
-      }).then(data => {
-        currentRoomId = data.roomId;
-        connectAndJoin(currentRoomId);
-      }).catch(err => {
-        showStatus(err.message, 'error');
-      });
+      if (code.length < 3) { showStatus('Enter a valid room code.', 'error'); return; }
+      hideStatus(); if (isSecureStaticPage) { showStatus('Opening game server…', 'info'); continueOnGameServer({ action: 'join', room: code }); return; }
+      fetch(serverApi + '/api/rooms/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: code }) }).then(resp => { if (!resp.ok) return resp.json().then(d => { throw new Error(d.error); }); return resp.json(); }).then(data => { currentRoomId = data.roomId; connectAndJoin(currentRoomId); }).catch(err => showStatus(err.message, 'error'));
     });
-
-    function connectAndJoin(roomId) {
-      showStatus('Connecting...', 'info');
-      window.location.href = `/game.html?room=${roomId}`;
-    }
-
+    roomInput.addEventListener('input', () => { roomInput.value = roomInput.value.replace(/[^a-z0-9]/gi, '').toUpperCase(); });
+    roomInput.addEventListener('keydown', event => { if (event.key === 'Enter') joinBtn.click(); });
+    function connectAndJoin(roomId) { showStatus('Connecting to the court…', 'info'); window.location.href = `/game.html?room=${roomId}`; }
+    document.getElementById('help-btn').addEventListener('click', () => helpDialog.showModal());
+    document.getElementById('help-close').addEventListener('click', () => helpDialog.close());
     const startupParams = new URLSearchParams(window.location.search);
     const startupAction = startupParams.get('action');
     const startupRoom = startupParams.get('room');
-    if (!isSecureStaticPage) {
-      if (startupAction === 'create') createBtn.click();
-      if (startupAction === 'join' && startupRoom) {
-        roomInput.value = startupRoom;
-        joinBtn.click();
-      }
-    }
+    if (!isSecureStaticPage) { if (startupAction === 'create') createBtn.click(); if (startupAction === 'join' && startupRoom) { roomInput.value = startupRoom; joinBtn.click(); } }
   </script>
 </body>
 </html>
