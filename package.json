@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build:sites": "node build-sites.js"
   },
   "dependencies": {
     "express": "^4.18.2",
