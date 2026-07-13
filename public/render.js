@@ -10,6 +10,10 @@
  */
 
 const ASSET_BASE = 'assets/';
+const PLAYER_START_Z = Object.freeze({
+  player1: -10,
+  player2: 10,
+});
 
 class Renderer3D {
   constructor(containerId) {
@@ -142,6 +146,10 @@ class Renderer3D {
   _createPlayer(id, color) {
     // Outer container that gets moved around by updateState().
     const group = new THREE.Group();
+    // The waiting room renders before the server sends its first game state.
+    // Mirror the server's baseline positions so both players stay in their own
+    // half instead of overlapping at Three.js's default origin by the net.
+    group.position.set(0, 0, PLAYER_START_Z[id] ?? 0);
     // The procedural body lives in its own subgroup so it can be hidden once
     // the FBX model has loaded.
     const body = new THREE.Group();

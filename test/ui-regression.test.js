@@ -119,6 +119,14 @@ for (const file of rendererFiles) {
     assert.match(js, /if \(this\.netGroup\) this\.netGroup\.visible = false/);
   });
 
+  test(`${file} keeps waiting players on their own baselines before the first server state`, () => {
+    const js = read(file);
+
+    assert.match(js, /player1:\s*-10/);
+    assert.match(js, /player2:\s*10/);
+    assert.match(js, /group\.position\.set\(0, 0, PLAYER_START_Z\[id\] \?\? 0\)/);
+  });
+
   test(`${file} cancels older message timers before hiding overlays`, () => {
     const js = read(file);
 
