@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="tennis-server-mode" content="auto">
+  <meta name="tennis-game-server" content="http://138.2.47.126:5000">
   <title>Tennis Game - Match</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="vendor/three.min.js"></script>
   <!-- FBXLoader (and its fflate dependency) for the modelled court/players -->
   <script src="vendor/fflate.min.js"></script>
   <script src="vendor/FBXLoader.js"></script>
@@ -36,8 +38,14 @@
       color: #D4E157; font: 700 20px 'Courier New', monospace; letter-spacing: 3px;
     }
     @media (max-width: 520px) {
+      #score-display { top: 18px !important; left: 12px !important; transform: none !important; padding: 8px 16px !important; font-size: 24px !important; }
+      #leave-room-btn { top: 18px !important; right: 12px !important; padding: 9px 12px !important; }
+      #player-labels { top: 70px !important; width: calc(100% - 16px) !important; gap: 3px 10px !important; font-size: 12px !important; }
       #room-invite { top: 116px; left: 50%; transform: translateX(-50%); padding: 8px 10px; }
       #room-code-badge { font-size: 17px; letter-spacing: 2px; }
+      #message-overlay { max-width: calc(100% - 32px); font-size: 36px !important; }
+      #charge-bar { bottom: 24px !important; width: min(220px, calc(100% - 32px)) !important; }
+      #controls-help { display: none; }
     }
     #leave-room-btn {
       position: absolute; top: 18px; right: 18px; z-index: 40;
@@ -48,6 +56,15 @@
     }
     #leave-room-btn:hover { background: rgba(200,35,51,0.95); }
     #leave-room-btn[hidden] { display: none; }
+    @media (max-height: 420px) {
+      #score-display { top: 12px !important; left: 12px !important; transform: none !important; padding: 7px 14px !important; font-size: 22px !important; }
+      #leave-room-btn { top: 12px !important; right: 12px !important; padding: 8px 12px !important; }
+      #player-labels { display: none !important; }
+      #room-invite { top: 68px; left: 12px; transform: none; padding: 7px 9px; }
+      #message-overlay { max-width: calc(100% - 32px); font-size: 32px !important; }
+      #charge-bar { bottom: 12px !important; }
+      #controls-help { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -67,31 +84,39 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
-    const serverOrigin = 'http://138.2.47.126:5000';
-    const defaultServerHost = window.location.protocol === 'http:' && window.location.port === '5000'
-      ? window.location.host
-      : '138.2.47.126:5000';
-    const serverUrl = params.get('server') || `ws://${defaultServerHost}`;
-    const shouldRedirectToGameServer = window.location.protocol === 'https:' && serverUrl.startsWith('ws:');
+    const serverMode = document.querySelector('meta[name="tennis-server-mode"]').content;
+    const configuredGameOrigin = document.querySelector('meta[name="tennis-game-server"]').content.replace(/\/+$/, '');
+    const useRemoteGameServer = serverMode === 'remote'
+      || (serverMode === 'auto' && window.location.hostname.endsWith('.github.io'));
+    const shouldRedirectToGameServer = useRemoteGameServer
+      && new URL(configuredGameOrigin).origin !== window.location.origin;
+    const socketProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const serverUrl = `${socketProtocol}//${window.location.host}`;
     const roomInvite = document.getElementById('room-invite');
     const roomCodeBadge = document.getElementById('room-code-badge');
 
     if (!roomId) {
-      document.body.innerHTML = '<div style="color:#fff;padding:40px;font-size:24px">Error: No room ID provided. Go back and join a room.</div>';
+      const errorMessage = document.createElement('div');
+      errorMessage.style.cssText = 'color:#fff;padding:40px;font-size:24px';
+      errorMessage.textContent = 'Error: No room ID provided. Go back and join a room.';
+      document.body.replaceChildren(errorMessage);
     } else {
       roomCodeBadge.textContent = roomId;
       roomInvite.hidden = false;
 
       if (shouldRedirectToGameServer) {
         const redirectParams = new URLSearchParams({ room: roomId });
-        window.location.replace(`${serverOrigin}/game.html?${redirectParams.toString()}`);
+        window.location.replace(`${configuredGameOrigin}/game.html?${redirectParams.toString()}`);
       } else {
         const app = new GameApp();
         window.gameApp = app;
         const leaveBtn = document.getElementById('leave-room-btn');
         leaveBtn.hidden = false;
         leaveBtn.addEventListener('click', () => app.leave());
-        app.start(serverUrl, roomId);
+        app.start(serverUrl, roomId).catch((error) => {
+          console.error(error);
+          app._showTerminalError('Unable to start the game.', error);
+        });
       }
     }
   </script>

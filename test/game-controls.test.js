@@ -61,17 +61,54 @@ test('server awards out balls to the opponent of the last hitter', () => {
   assert.equal(points[0].winner, 2);
 });
 
-test('server awards stopped balls to the opponent of the last hitter', () => {
+test('server awards a second bounce to the last hitter after an in-bounds first bounce', () => {
   const points = [];
   const game = new Game('TEST', (msg) => { if (msg.type === 'point') points.push(msg); });
   game.running = true;
   game.phase = 'playing';
   game.lastHitter = 'player1';
-  game.ball = { x: 0, y: 0.15, z: -0.1, vx: 0, vy: 0, vz: 0, rotation: 0, spin: { x: 0, z: 0 } };
+  game.ball = { x: 0, y: 0.15, z: 9.88, vx: 0, vy: -1, vz: 4, rotation: 0, spin: { x: 0, z: 0 } };
+
+  game._updatePlaying(1 / 60);
+
+  assert.equal(game.bouncesSinceHit, 1);
+  assert.equal(points.length, 0);
+
+  for (let tick = 0; tick < 30 && points.length === 0; tick++) {
+    game._updatePlaying(1 / 60);
+  }
+
+  assert.ok(game.ball.z > 10, `expected the second bounce beyond the baseline, got z=${game.ball.z}`);
+  assert.equal(points[0].winner, 1);
+  assert.equal(points[0].reason, 'Second bounce');
+});
+
+test('server awards a net fault to the opponent of the last hitter', () => {
+  const points = [];
+  const game = new Game('TEST', (msg) => { if (msg.type === 'point') points.push(msg); });
+  game.running = true;
+  game.phase = 'playing';
+  game.lastHitter = 'player1';
+  game.ball = { x: 0, y: 0.8, z: -0.05, vx: 0, vy: 0, vz: 6, rotation: 0, spin: { x: 0, z: 0 } };
 
   game._updatePlaying(1 / 60);
 
   assert.equal(points[0].winner, 2);
+  assert.equal(points[0].reason, 'Net fault');
+});
+
+test("server awards balls landing on the hitter's own side to the opponent", () => {
+  const points = [];
+  const game = new Game('TEST', (msg) => { if (msg.type === 'point') points.push(msg); });
+  game.running = true;
+  game.phase = 'playing';
+  game.lastHitter = 'player1';
+  game.ball = { x: 0, y: 0.15, z: -1, vx: 0, vy: 0, vz: 0, rotation: 0, spin: { x: 0, z: 0 } };
+
+  game._updatePlaying(1 / 60);
+
+  assert.equal(points[0].winner, 2);
+  assert.equal(points[0].reason, 'Wrong court');
 });
 
 test('simplified tiebreak ends the set at 7-6', () => {

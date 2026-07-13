@@ -14,7 +14,7 @@ Server runs on `http://localhost:5000`.
 ### Playing
 1. Open `http://localhost:5000` in two browser tabs (or two computers on the same network)
 2. One player clicks **Create New Room**
-3. Share the 5-character room code with the other player
+3. Share the 8-character room code with the other player
 4. Other player enters the code and clicks **Join**
 5. After 3-second countdown, match begins!
 

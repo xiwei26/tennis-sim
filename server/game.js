@@ -32,6 +32,7 @@ export class Game {
 
     this.ball = null;
     this.lastHitter = null;
+    this.bouncesSinceHit = 0;
     this.scoring = createInitialState();
     this.phase = 'serve';
     this.phaseTimer = 0;
@@ -139,6 +140,7 @@ export class Game {
     this.phase = 'serve';
     this.ballInPlay = false;
     this.lastHitter = null;
+    this.bouncesSinceHit = 0;
     for (const player of Object.values(this.players)) player.serving = false;
     const server = this.players[serverId];
     server.serving = true;
@@ -221,6 +223,7 @@ export class Game {
 
     applyHit(this.ball, hitType, server.z, targetZ, targetX, power);
     this.lastHitter = serverId;
+    this.bouncesSinceHit = 0;
     // Serves are hit from high up with a downward drive.
     // From baseline (z = ±10) to the net (z = 0) the ball travels ~10 units.
     // At forward speeds of ~13-16 the travel time is ~0.6-0.8 s.
@@ -241,18 +244,34 @@ export class Game {
     updateBall(this.ball, dt);
 
     if (checkNetCollision(this.ball)) {
-      const winner = this.ball.z < 0 ? 2 : 1;
+      const winner = this.lastHitter === 'player1' ? 2 : this.lastHitter === 'player2' ? 1 : (this.ball.z > 0 ? 1 : 2);
       this._awardPoint(winner, 'Net fault');
       return;
     }
 
-    checkGroundCollision(this.ball);
+    const groundCollision = checkGroundCollision(this.ball);
+    if (groundCollision.bounced) {
+      this.bouncesSinceHit++;
 
-    const bounds = checkOutOfBounds(this.ball);
-    if (bounds !== 'in' && this.ball.y <= COURT.groundY + 0.2) {
-      const winner = this.lastHitter === 'player1' ? 2 : this.lastHitter === 'player2' ? 1 : (this.ball.z > 0 ? 1 : 2);
-      this._awardPoint(winner, `Out: ${bounds}`);
-      return;
+      if (this.bouncesSinceHit === 1) {
+        const bounds = checkOutOfBounds(this.ball);
+        const landedOnOpponentSide = this.lastHitter === 'player1'
+          ? this.ball.z > COURT.netZ
+          : this.lastHitter === 'player2'
+            ? this.ball.z < COURT.netZ
+            : true;
+
+        if (bounds !== 'in' || !landedOnOpponentSide) {
+          const winner = this.lastHitter === 'player1' ? 2 : this.lastHitter === 'player2' ? 1 : (this.ball.z > 0 ? 1 : 2);
+          const reason = bounds !== 'in' ? `Out: ${bounds}` : 'Wrong court';
+          this._awardPoint(winner, reason);
+          return;
+        }
+      } else {
+        const winner = this.lastHitter === 'player1' ? 1 : this.lastHitter === 'player2' ? 2 : (this.ball.z > 0 ? 1 : 2);
+        this._awardPoint(winner, 'Second bounce');
+        return;
+      }
     }
 
     for (const [id, player] of Object.entries(this.players)) {
@@ -276,13 +295,9 @@ export class Game {
         const targetX = this._resolveTargetX(id, 0);
         applyHit(this.ball, hitType, player.z, targetZ, targetX, power);
         this.lastHitter = id;
+        this.bouncesSinceHit = 0;
       }
 
-    }
-
-    if (Math.abs(this.ball.vy) < 0.1 && this.ball.y <= COURT.groundY + 0.15) {
-      const winner = this.lastHitter === 'player1' ? 2 : this.lastHitter === 'player2' ? 1 : (this.ball.z > 0 ? 1 : 2);
-      this._awardPoint(winner, 'Missed return');
     }
   }
 

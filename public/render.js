@@ -19,6 +19,7 @@ class Renderer3D {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
     this.state = null;
+    this._destroyed = false;
 
     // Scene
     this.scene = new THREE.Scene();
@@ -65,6 +66,7 @@ class Renderer3D {
     const ballMat = new THREE.MeshStandardMaterial({ color: 0xD4E157, roughness: 0.3 });
     this.ball = new THREE.Mesh(ballGeo, ballMat);
     this.ball.castShadow = true;
+    this.ball.visible = false;
     this.ball.position.set(0, 0.5, 0);
     this.scene.add(this.ball);
 
@@ -342,6 +344,10 @@ class Renderer3D {
     loader.load(
       ASSET_BASE + '003_Tennis_court.fbx',
       (obj) => {
+        if (this._destroyed) {
+          this._disposeObject(obj);
+          return;
+        }
         this._prepareModel(obj, { receiveShadow: true });
         // Align the actual painted court lines with the logical 10 x 20 world.
         // Fitting the full FBX footprint would include fences and benches and
@@ -354,7 +360,7 @@ class Renderer3D {
         if (this.netGroup) this.netGroup.visible = false;
       },
       undefined,
-      (err) => console.warn('[render] Failed to load court model:', err)
+      (err) => { if (!this._destroyed) console.warn('[render] Failed to load court model:', err); }
     );
 
     // --- Players ---
@@ -427,6 +433,10 @@ class Renderer3D {
     loader.load(
       url,
       (obj) => {
+        if (this._destroyed) {
+          this._disposeObject(obj);
+          return;
+        }
         this._prepareModel(obj, { castShadow: true });
         if (textureUrl) this._applyBaseColorTexture(obj, textureUrl);
         // Scale the model to a believable player height (~1.5 units) and drop
@@ -440,7 +450,7 @@ class Renderer3D {
         if (entry.body) entry.body.visible = false;
       },
       undefined,
-      (err) => console.warn(`[render] Failed to load player model ${url}:`, err)
+      (err) => { if (!this._destroyed) console.warn(`[render] Failed to load player model ${url}:`, err); }
     );
   }
 
@@ -555,7 +565,7 @@ class Renderer3D {
 
     const previous = entry.activeAction;
     next.reset().play();
-    if (previous) previous.crossFadeTo(next, 0.16, true);
+    if (previous) previous.crossFadeTo(next, 0.16, false);
     entry.activeAction = next;
     entry.isMoving = isMoving;
   }
@@ -574,6 +584,7 @@ class Renderer3D {
    */
   _applyBaseColorTexture(obj, textureUrl) {
     const tex = new THREE.TextureLoader().load(textureUrl);
+    const replacedMaps = new Set();
     // Tripo FBX UVs are authored for the standard Three/OpenGL image origin
     // (top-left). Keeping flipY=true avoids clothing/pattern seams looking
     // shifted or upside-down when rebinding the extracted basecolor map.
@@ -589,6 +600,7 @@ class Renderer3D {
         // Preserve any UV transform the FBXLoader already decoded onto an
         // existing map (scale/offset), then swap in the external albedo.
         if (m.map) {
+          replacedMaps.add(m.map);
           tex.repeat.copy(m.map.repeat);
           tex.offset.copy(m.map.offset);
           tex.center.copy(m.map.center);
@@ -599,6 +611,7 @@ class Renderer3D {
         m.needsUpdate = true;
       });
     });
+    replacedMaps.forEach((map) => { if (map !== tex) map.dispose(); });
   }
 
   /** Enable lighting/shadows on every mesh of a loaded model. */
@@ -663,7 +676,7 @@ class Renderer3D {
     div.style.cssText = `position:absolute;top:20px;left:50%;transform:translateX(-50%);
       color:#fff;font-family:'Courier New',monospace;font-size:28px;font-weight:bold;
       text-align:center;background:rgba(0,0,0,0.6);padding:10px 30px;border-radius:8px;z-index:10;`;
-    div.innerHTML = '0 - 0';
+    div.textContent = '0 - 0';
     this.container.appendChild(div);
     this.scoreDisplay = div;
 
@@ -674,6 +687,7 @@ class Renderer3D {
       width:min(680px,calc(100% - 32px));font-size:14px;line-height:1.2;z-index:10;
       pointer-events:none;`;
     this.container.appendChild(labels);
+    this.playerLabelsContainer = labels;
 
     const p1 = document.createElement('div');
     p1.style.cssText = `color:#E53935;white-space:nowrap;text-align:center;`;
@@ -746,28 +760,56 @@ class Renderer3D {
 
   showMessage(text, durationMs = 2000) {
     clearTimeout(this._messageTimer);
+    this._messageTimer = null;
     this.messageOverlay.textContent = text;
     this.messageOverlay.style.opacity = '1';
-    this._messageTimer = setTimeout(() => { this.messageOverlay.style.opacity = '0'; }, durationMs);
+    if (Number.isFinite(durationMs) && durationMs > 0) {
+      this._messageTimer = setTimeout(() => {
+        this.messageOverlay.style.opacity = '0';
+        this._messageTimer = null;
+      }, durationMs);
+    }
   }
 
 
-  updateScore(score) {
+  updateScore(score = {}) {
+    const asCount = (value) => {
+      const number = Number(value);
+      return Number.isFinite(number) ? Math.max(0, Math.trunc(number)) : 0;
+    };
+    const p1Games = asCount(score.p1Games);
+    const p2Games = asCount(score.p2Games);
+    const p1Points = asCount(score.p1Points);
+    const p2Points = asCount(score.p2Points);
     const POINT_LABELS = ['0', '15', '30', '40', 'AD'];
-    const p1l = POINT_LABELS[Math.min(score.p1Points, 4)] || 'AD';
-    const p2l = POINT_LABELS[Math.min(score.p2Points, 4)] || 'AD';
+    const p1l = POINT_LABELS[Math.min(p1Points, 4)] || 'AD';
+    const p2l = POINT_LABELS[Math.min(p2Points, 4)] || 'AD';
     let st = `${p1l} - ${p2l}`;
     if (score.isDeuce) st = 'DEUCE';
-    if (score.p1Points >= 4 && score.p1Points - score.p2Points === 1) st = 'AD P1';
-    if (score.p2Points >= 4 && score.p2Points - score.p1Points === 1) st = 'AD P2';
-    this.scoreDisplay.innerHTML = `<span style="color:#E53935">${score.p1Games}</span> ${st} <span style="color:#1E88E5">${score.p2Games}</span>`;
+    if (p1Points >= 4 && p1Points - p2Points === 1) st = 'AD P1';
+    if (p2Points >= 4 && p2Points - p1Points === 1) st = 'AD P2';
+
+    const p1 = document.createElement('span');
+    p1.style.color = '#E53935';
+    p1.textContent = String(p1Games);
+    const pointScore = document.createTextNode(` ${st} `);
+    const p2 = document.createElement('span');
+    p2.style.color = '#1E88E5';
+    p2.textContent = String(p2Games);
+    this.scoreDisplay.replaceChildren(p1, pointScore, p2);
   }
 
   updateState(state) {
     this.state = state;
-    if (!state || !state.ball) return;
-    this.ball.position.set(state.ball.x, state.ball.y, state.ball.z);
-    this.ball.rotation.z = state.ball.rotation || 0;
+    if (!state) {
+      this.ball.visible = false;
+      return;
+    }
+    this.ball.visible = Boolean(state.ball);
+    if (state.ball) {
+      this.ball.position.set(state.ball.x, state.ball.y, state.ball.z);
+      this.ball.rotation.z = state.ball.rotation || 0;
+    }
     this._updatePlayerFromState('player1', state.player1);
     this._updatePlayerFromState('player2', state.player2);
     if (state.score) this.updateScore(state.score);
@@ -779,7 +821,7 @@ class Renderer3D {
     if (!entry) return;
     const previous = entry.lastNetworkPosition;
     entry.group.position.set(playerState.x, 0, playerState.z);
-    if (id !== this.localPlayerId && previous) {
+    if (previous) {
       const distance = Math.hypot(playerState.x - previous.x, playerState.z - previous.z);
       this.setPlayerMoving(id, distance > 0.002);
     }
@@ -791,6 +833,7 @@ class Renderer3D {
   }
 
   resize() {
+    if (this._destroyed) return;
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     this.camera.aspect = w / h;
@@ -798,15 +841,48 @@ class Renderer3D {
     this.renderer.setSize(w, h);
   }
 
+  _disposeObject(root) {
+    if (!root || typeof root.traverse !== 'function') return;
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
+
+    root.traverse((node) => {
+      if (node.geometry) geometries.add(node.geometry);
+      const nodeMaterials = Array.isArray(node.material) ? node.material : [node.material];
+      nodeMaterials.forEach((material) => {
+        if (!material) return;
+        materials.add(material);
+        Object.values(material).forEach((value) => {
+          if (value && value.isTexture) textures.add(value);
+        });
+      });
+    });
+
+    textures.forEach((texture) => texture.dispose());
+    materials.forEach((material) => material.dispose());
+    geometries.forEach((geometry) => geometry.dispose());
+  }
+
   destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
     clearTimeout(this._messageTimer);
+    this._messageTimer = null;
     window.removeEventListener('resize', this._onResize);
     Object.values(this.players).forEach((entry) => {
-      if (entry.mixer) entry.mixer.stopAllAction();
+      if (entry.mixer) {
+        entry.mixer.stopAllAction();
+        if (entry.model) entry.mixer.uncacheRoot(entry.model);
+      }
     });
+    this._disposeObject(this.scene);
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
     }
+    [this.scoreDisplay, this.playerLabelsContainer, this.messageOverlay, this.chargeBar].forEach((element) => {
+      if (element && element.parentNode) element.parentNode.removeChild(element);
+    });
   }
 }

@@ -91,4 +91,19 @@ for (const file of inputFiles) {
     assert.equal(keys.up, false);
     assert.equal(controls.input.getChargeState().charging, false);
   });
+
+  test(`${file} clears shots charged before a gameplay boundary`, () => {
+    const controls = createInputManager(file);
+    controls.input.setPlayerId('player1');
+    controls.keyDown('KeyJ');
+    controls.setClock(1000);
+
+    controls.input.reset();
+    controls.keyUp('KeyJ');
+
+    const keys = controls.input.getKeys();
+    assert.equal(keys.hit_flat, false);
+    assert.equal(keys.power, 0);
+    assert.equal(controls.input.consumeHitAnimation(), null);
+  });
 }

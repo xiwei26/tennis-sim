@@ -53,6 +53,11 @@ class InputManager {
     this._resetState();
   }
 
+  /** Clear any movement, charge, or pending swing across gameplay boundaries. */
+  reset() {
+    this._resetState();
+  }
+
   _now() {
     return (typeof performance !== 'undefined' ? performance.now() : Date.now());
   }

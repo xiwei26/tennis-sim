@@ -9,20 +9,30 @@ class GameApp {
     this.input = null;
     this.playerId = null;
     this.running = false;
+    this._closing = false;
+    this._matchEnded = false;
+    this._terminalError = false;
+    this._destroyed = false;
+    this._roomCloseTimer = null;
     this._animFrameId = null;
     this._renderLoopStarted = false;
   }
 
   async start(serverUrl, roomId) {
-    this.renderer = new Renderer3D('game-container');
-    this.network = new NetworkClient();
-    this.input = new InputManager();
-    // Keep the court and character warm-up animations visible while a player
-    // is waiting in a room; network input still starts only at game begin.
-    this._startRenderLoop();
+    try {
+      this.renderer = new Renderer3D('game-container');
+      this.network = new NetworkClient();
+      this.input = new InputManager();
+      // Keep the court and character warm-up animations visible while a player
+      // is waiting in a room; network input still starts only at game begin.
+      this._startRenderLoop();
+    } catch (err) {
+      this._showTerminalError('Unable to start the 3D game.', err);
+      return;
+    }
 
     // Show connecting message
-    this.renderer.showMessage('Connecting...', 5000);
+    this.renderer.showMessage('Connecting...', 0);
 
     // Register callbacks
     this.network.on('roomJoined', (msg) => {
@@ -36,7 +46,7 @@ class GameApp {
         controlsHelp.textContent = `You are Player ${playerNumber} | Move: ${moveKeys} | Hold J/K/L/U to charge, release to swing`;
       }
       console.log('Joined as:', this.playerId);
-      this.renderer.showMessage('Waiting for opponent...', 5000);
+      this.renderer.showMessage('Waiting for opponent...', 0);
     });
 
     this.network.on('gameStart', (msg) => {
@@ -49,10 +59,11 @@ class GameApp {
 
     this.network.on('gameBegin', () => {
       if (this.running) return;
+      this.input.reset();
       this.renderer.showMessage('PLAY!', 800);
       this.running = true;
       // Start input loop
-      this.network._startInputLoop(() => this.input.getKeys());
+      this.network.startInputLoop(() => this.input.getKeys());
     });
 
     this.network.on('state', (msg) => {
@@ -66,45 +77,74 @@ class GameApp {
     });
 
     this.network.on('point', (msg) => {
+      this.input.reset();
+      if (msg.score) this.renderer.updateScore(msg.score);
       const playerLabel = msg.winner === 1 ? 'Player 1' : 'Player 2';
       this.renderer.showMessage(`${playerLabel} wins point!`, 1500);
     });
 
     this.network.on('matchOver', (msg) => {
-      this.running = false;
+      this._matchEnded = true;
+      this._stopGameplay();
+      if (msg.score) this.renderer.updateScore(msg.score);
       const winnerLabel = msg.winner === 1 ? 'PLAYER 1' : 'PLAYER 2';
-      this.renderer.showMessage(`${winnerLabel} WINS!`, 10000);
+      this.renderer.showMessage(`${winnerLabel} WINS!`, 0);
       this.renderer.messageOverlay.style.fontSize = '64px';
+      this._stopRenderLoop(true);
     });
 
     this.network.on('serveReady', (msg) => {
-      this.renderer.showMessage('Press J/K/L to serve!', 2000);
+      this.input.reset();
+      this.renderer.showMessage('Press J/K/L/U to serve!', 2000);
     });
 
     this.network.on('error', (msg) => {
-      this.renderer.showMessage(`Error: ${msg.message}`, 3000);
+      this._showTerminalError(`Error: ${msg.message}`);
     });
 
     this.network.on('disconnect', () => {
-      // If we're already handling an opponent-left countdown, don't overwrite it.
-      if (this._closing) return;
-      this.running = false;
-      this.renderer.showMessage('Disconnected from server', 5000);
+      // A normal server-side room cleanup must not replace a terminal result.
+      if (this._closing || this._matchEnded || this._terminalError) return;
+      this._showTerminalError('Disconnected from server');
     });
 
     this.network.on('opponentLeft', (msg) => {
-      this.running = false;
+      this._stopGameplay();
       this._startRoomCloseCountdown(msg && msg.seconds ? msg.seconds : 5);
+      this._stopRenderLoop(true);
     });
 
     // Connect and join
     try {
       await this.network.connect(serverUrl);
-      this.network.joinRoom(roomId);
+      if (this._destroyed || this._closing) return;
+      await this.network.joinRoom(roomId);
     } catch (err) {
-      this.renderer.showMessage('Connection failed!', 5000);
-      console.error(err);
+      if (this._destroyed || this._closing || this._terminalError) return;
+      const detail = err && typeof err.message === 'string' ? `: ${err.message}` : '!';
+      this._showTerminalError(`Connection failed${detail}`, err);
     }
+  }
+
+  _showTerminalError(message, error = null) {
+    if (this._destroyed || this._matchEnded || this._terminalError) return;
+    this._terminalError = true;
+    this._stopGameplay();
+    if (this.network) this.network.close();
+
+    if (this.renderer) {
+      this.renderer.showMessage(message, 0);
+      this._stopRenderLoop(true);
+    } else {
+      const host = document.getElementById('game-container') || document.body;
+      const fallback = document.createElement('div');
+      fallback.setAttribute('role', 'alert');
+      fallback.style.cssText = 'min-height:100vh;display:grid;place-items:center;padding:32px;color:#fff;background:#020814;font:600 18px/1.5 sans-serif;text-align:center;';
+      fallback.textContent = message;
+      host.replaceChildren(fallback);
+    }
+
+    if (error) console.error(error);
   }
 
   /**
@@ -122,27 +162,44 @@ class GameApp {
       remaining -= 1;
       if (remaining > 0) {
         show();
-        setTimeout(tick, 1000);
+        this._roomCloseTimer = setTimeout(tick, 1000);
       } else {
+        this._roomCloseTimer = null;
         this._returnToLobby();
       }
     };
-    setTimeout(tick, 1000);
+    this._roomCloseTimer = setTimeout(tick, 1000);
   }
 
   /**
    * Leave the room voluntarily (from the leave button).
    */
   leave() {
-    if (this._closing) return;
+    if (this._destroyed) return;
     if (this.network) this.network.leaveRoom();
     this._returnToLobby();
   }
 
   _returnToLobby() {
     this._closing = true;
+    if (this._roomCloseTimer !== null) {
+      clearTimeout(this._roomCloseTimer);
+      this._roomCloseTimer = null;
+    }
     this.destroy();
     window.location.href = 'index.html';
+  }
+
+  _stopGameplay() {
+    this.running = false;
+    if (this.network) this.network.stopInputLoop();
+    if (this.input && this.input.reset) this.input.reset();
+    if (this.renderer && this.playerId && this.renderer.setPlayerMoving) {
+      this.renderer.setPlayerMoving(this.playerId, false);
+    }
+    if (this.renderer && this.renderer.updateChargeBar) {
+      this.renderer.updateChargeBar({ charging: false, power: 0, type: null });
+    }
   }
 
   _startRenderLoop() {
@@ -150,17 +207,21 @@ class GameApp {
     this._renderLoopStarted = true;
     const fullLoop = () => {
       if (this.renderer.updateAnimations) this.renderer.updateAnimations();
-      if (this.input && this.playerId && this.renderer.setPlayerMoving) {
-        this.renderer.setPlayerMoving(this.playerId, this.input.isMoving());
+      if (this.running && this.input && this.playerId) {
         const hit = this.input.consumeHitAnimation();
         if (hit) {
           this.renderer.playHit(this.playerId, hit.type);
           this.network.sendPlayerAction('hit', { hitType: hit.type });
         }
+      } else if (this.input) {
+        this.input.consumeHitAnimation();
       }
       // Reflect the local player's charge state on the charge bar.
       if (this.input && this.renderer.updateChargeBar) {
-        this.renderer.updateChargeBar(this.input.getChargeState());
+        const chargeState = this.running
+          ? this.input.getChargeState()
+          : { charging: false, power: 0, type: null };
+        this.renderer.updateChargeBar(chargeState);
       }
       this.renderer.render();
       this._animFrameId = requestAnimationFrame(fullLoop);
@@ -168,11 +229,24 @@ class GameApp {
     fullLoop();
   }
 
+  _stopRenderLoop(renderFinalFrame = false) {
+    this._renderLoopStarted = false;
+    if (this._animFrameId !== null) {
+      cancelAnimationFrame(this._animFrameId);
+      this._animFrameId = null;
+    }
+    if (renderFinalFrame && this.renderer) this.renderer.render();
+  }
 
   destroy() {
-    this.running = false;
-    this._renderLoopStarted = false;
-    if (this._animFrameId) cancelAnimationFrame(this._animFrameId);
+    if (this._destroyed) return;
+    this._destroyed = true;
+    this._stopGameplay();
+    if (this._roomCloseTimer !== null) {
+      clearTimeout(this._roomCloseTimer);
+      this._roomCloseTimer = null;
+    }
+    this._stopRenderLoop();
     if (this.network) this.network.close();
     if (this.input) this.input.destroy();
     if (this.renderer) this.renderer.destroy();

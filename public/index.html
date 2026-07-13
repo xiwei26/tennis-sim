@@ -3,17 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="tennis-server-mode" content="auto">
+  <meta name="tennis-game-server" content="http://138.2.47.126:5000">
   <title>Tennis Battle — Multiplayer Lobby</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; margin: 0; }
     body { min-width: 320px; min-height: 100vh; overflow-x: hidden; color: #edf5ff; font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif; background: #020814; }
     button, input { font: inherit; }
-    .lobby { position: relative; isolation: isolate; min-height: 100vh; padding: 26px 48px 22px; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; background: #020814; }
+    .lobby { position: relative; isolation: isolate; min-height: 100vh; padding: 26px 48px 22px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; overflow: hidden; background: #020814; }
     .lobby::before, .lobby::after { content: ""; position: absolute; pointer-events: none; }
     .lobby::before { z-index: -2; inset: 0; background: radial-gradient(ellipse 25% 11% at 50% 88%, rgba(117, 196, 84, .24), transparent 72%), radial-gradient(ellipse 18% 18% at 9% 36%, rgba(176, 41, 58, .28), transparent 66%), radial-gradient(ellipse 18% 18% at 91% 36%, rgba(28, 111, 207, .28), transparent 66%), radial-gradient(circle at 13% 13%, rgba(237, 250, 255, .18) 0 1px, transparent 1.8px), radial-gradient(circle at 87% 13%, rgba(237, 250, 255, .18) 0 1px, transparent 1.8px), linear-gradient(166deg, #080f20 0 36%, #102b2c 36.2% 64%, #071426 64.2% 100%); opacity: .98; transform: scale(1.015); }
     .lobby::after { z-index: -1; inset: 0; background: linear-gradient(180deg, rgba(2, 8, 20, .1) 0%, rgba(2, 8, 20, .35) 42%, rgba(2, 8, 20, .88) 100%), linear-gradient(90deg, rgba(2, 8, 20, .58), transparent 30%, transparent 70%, rgba(2, 8, 20, .58)); }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .topbar { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
     .brand { display: inline-flex; align-items: center; gap: 12px; letter-spacing: .12em; font-weight: 800; font-size: 15px; }
     .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid rgba(209, 255, 187, .46); border-radius: 10px; color: #d4ff71; background: rgba(10, 30, 30, .48); box-shadow: inset 0 0 16px rgba(136, 217, 130, .12); font-family: "Courier New", monospace; font-size: 19px; line-height: 1; }
     .topbar-actions { display: flex; align-items: center; gap: 16px; }
@@ -21,8 +23,8 @@
     .online i { width: 7px; height: 7px; border-radius: 50%; background: #88d982; box-shadow: 0 0 11px #88d982; }
     .help-btn { min-height: 37px; padding: 0 14px; border: 1px solid rgba(222, 237, 255, .28); border-radius: 9px; color: #edf5ff; cursor: pointer; background: rgba(7, 17, 35, .5); font-size: 13px; font-weight: 650; transition: .2s ease; }
     .help-btn:hover { background: rgba(232, 244, 255, .13); border-color: rgba(235, 248, 255, .6); }
-    .scene { display: grid; place-items: center; padding: 46px 0 30px; }
-    .container { width: min(100%, 590px); padding: 42px; text-align: center; position: relative; border: 1px solid rgba(218, 237, 255, .22); border-radius: 22px; background: linear-gradient(145deg, rgba(19, 38, 63, .78), rgba(4, 14, 31, .73)); box-shadow: 0 24px 80px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .12); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+    .scene { min-width: 0; display: grid; place-items: center; padding: 46px 0 30px; }
+    .container { min-width: 0; width: min(100%, 590px); padding: 42px; text-align: center; position: relative; border: 1px solid rgba(218, 237, 255, .22); border-radius: 22px; background: linear-gradient(145deg, rgba(19, 38, 63, .78), rgba(4, 14, 31, .73)); box-shadow: 0 24px 80px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .12); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
     .container::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(120deg, rgba(255,255,255,.08), transparent 32%); }
     .match-label { color: #d4e157; font: 700 11px/1.2 "Courier New", monospace; letter-spacing: .2em; }
     h1 { margin-top: 15px; font-size: clamp(35px, 5vw, 54px); line-height: .98; letter-spacing: -.045em; font-weight: 800; }
@@ -59,7 +61,7 @@
     .dialog-inner { padding: 30px; }.dialog-title { font-size: 25px; font-weight: 800; letter-spacing: -.03em; }.dialog-copy { margin-top: 10px; color: #b9c9d7; line-height: 1.6; font-size: 14px; }
     .help-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 22px 0; }.help-grid div { padding: 13px; border: 1px solid rgba(221, 237, 255, .14); border-radius: 10px; background: rgba(255,255,255,.04); font-size: 13px; }.help-grid span { display: block; margin-bottom: 5px; color: #d4e157; font: 700 10px/1 "Courier New", monospace; letter-spacing: .1em; }
     @media (max-width: 680px) { .lobby { padding: 20px 18px 18px; }.topbar { align-items: flex-start; }.topbar-actions { gap: 10px; }.online { display: none; }.scene { padding: 32px 0 22px; }.container { padding: 32px 22px; border-radius: 18px; }.input-group { flex-direction: column; }.input-group .btn { flex-basis: 57px; }.controls-info { margin-top: 25px; } }
-    @media (max-width: 400px) { .brand { font-size: 12px; gap: 8px; }.brand-mark { width: 30px; height: 30px; }.help-btn { padding: 0 10px; font-size: 12px; } }
+    @media (max-width: 400px) { .topbar { gap: 8px; }.brand { min-width: 0; font-size: 12px; gap: 8px; }.brand-mark { flex: 0 0 auto; width: 30px; height: 30px; }.help-btn { flex: 0 0 auto; padding: 0 10px; font-size: 12px; } }
   </style>
 </head>
 <body>
@@ -69,19 +71,21 @@
       <p class="match-label">MULTIPLAYER MATCH</p><h1 id="lobby-title">ENTER THE COURT</h1><p class="subtitle">Start a new private match or join an existing room with a friend.</p>
       <button class="btn btn-primary" id="create-btn">CREATE NEW ROOM</button><p class="host-note">HOST A MATCH</p>
       <div class="divider">OR JOIN A FRIEND</div>
-      <div class="input-group"><input type="text" id="room-code-input" placeholder="A B C 1 2" aria-label="Room code" maxlength="5" autocomplete="off"><button class="btn" id="join-btn">JOIN MATCH</button></div>
-      <div class="room-code" id="room-display"><p>SHARE THIS CODE</p><div class="code" id="room-code-value">ABC12</div><p class="hint">Waiting for your opponent to join…</p></div><div class="status" id="status-message" role="status"></div>
+      <div class="input-group"><input type="text" id="room-code-input" placeholder="A B C 1 2 X Y Z" aria-label="Room code" maxlength="8" autocomplete="off"><button class="btn" id="join-btn">JOIN MATCH</button></div>
+      <div class="room-code" id="room-display"><p>SHARE THIS CODE</p><div class="code" id="room-code-value">ABC12XYZ</div><p class="hint">Waiting for your opponent to join…</p></div><div class="status" id="status-message" role="status"></div>
       <div class="controls-info" aria-label="Quick controls"><span class="controls-label">QUICK CONTROLS</span><span class="control-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> MOVE</span><span class="control-group"><kbd>J</kbd> FLAT</span><span class="control-group"><kbd>K</kbd> TOPSPIN</span><span class="control-group"><kbd>L</kbd> SLICE</span><span class="control-group"><kbd>U</kbd> VOLLEY</span></div>
     </div></section>
     <footer class="footer">REAL-TIME 3D TENNIS <span aria-hidden="true">•</span> LOW LATENCY MATCHMAKING</footer>
   </main>
-  <dialog class="help-dialog" id="help-dialog" aria-labelledby="help-title"><div class="dialog-inner"><h2 class="dialog-title" id="help-title">How to Play</h2><p class="dialog-copy">Create a room and share its five-character code. Your match starts as soon as your opponent joins.</p><div class="help-grid"><div><span>MOVE</span>WASD or arrow keys</div><div><span>HIT</span>Hold a shot key to charge</div><div><span>SERVE</span>Hit from behind baseline</div><div><span>WIN</span>First to six games takes the set</div></div><button class="btn btn-primary" id="help-close" type="button">GOT IT</button></div></dialog>
+  <dialog class="help-dialog" id="help-dialog" aria-labelledby="help-title"><div class="dialog-inner"><h2 class="dialog-title" id="help-title">How to Play</h2><p class="dialog-copy">Create a room and share its eight-character code. Your match starts as soon as your opponent joins.</p><div class="help-grid"><div><span>MOVE</span>WASD or arrow keys</div><div><span>HIT</span>Hold a shot key to charge</div><div><span>SERVE</span>Hit from behind baseline</div><div><span>WIN</span>First to six games takes the set</div></div><button class="btn btn-primary" id="help-close" type="button">GOT IT</button></div></dialog>
   <script>
-    const serverIP = '138.2.47.126';
-    const serverOrigin = `http://${serverIP}:5000`;
-    const localServerHosts = new Set([`${serverIP}:5000`, 'localhost:5000', '127.0.0.1:5000']);
-    const serverApi = localServerHosts.has(window.location.host) ? window.location.origin : serverOrigin;
-    const isSecureStaticPage = window.location.protocol === 'https:' && serverApi.startsWith('http:');
+    const serverMode = document.querySelector('meta[name="tennis-server-mode"]').content;
+    const configuredGameOrigin = document.querySelector('meta[name="tennis-game-server"]').content.replace(/\/+$/, '');
+    const useRemoteGameServer = serverMode === 'remote'
+      || (serverMode === 'auto' && window.location.hostname.endsWith('.github.io'));
+    const serverApi = useRemoteGameServer ? configuredGameOrigin : window.location.origin;
+    const shouldHandoffToGameServer = useRemoteGameServer
+      && new URL(serverApi).origin !== window.location.origin;
     let currentRoomId = null;
     const createBtn = document.getElementById('create-btn');
     const joinBtn = document.getElementById('join-btn');
@@ -92,9 +96,9 @@
     const helpDialog = document.getElementById('help-dialog');
     function showStatus(msg, type = 'info') { statusMsg.className = 'status ' + type; statusMsg.textContent = msg; }
     function hideStatus() { statusMsg.className = 'status'; }
-    function continueOnGameServer(params = {}) { const url = new URL(serverOrigin + '/'); for (const [key, value] of Object.entries(params)) if (value) url.searchParams.set(key, value); window.location.href = url.toString(); }
+    function continueOnGameServer(params = {}) { const url = new URL(serverApi + '/'); for (const [key, value] of Object.entries(params)) if (value) url.searchParams.set(key, value); window.location.href = url.toString(); }
     createBtn.addEventListener('click', async () => {
-      if (isSecureStaticPage) { showStatus('Opening game server…', 'info'); continueOnGameServer({ action: 'create' }); return; }
+      if (shouldHandoffToGameServer) { showStatus('Opening game server…', 'info'); continueOnGameServer({ action: 'create' }); return; }
       createBtn.disabled = true; createBtn.textContent = 'CREATING…'; hideStatus();
       try { const resp = await fetch(serverApi + '/api/rooms', { method: 'POST' }); if (!resp.ok) return resp.json().then(d => { throw new Error(d.error || 'Failed to create room'); }); const data = await resp.json(); currentRoomId = data.roomId; roomCodeValue.textContent = currentRoomId; roomDisplay.style.display = 'block'; showStatus('Room created. Share the code with your opponent.', 'info'); connectAndJoin(currentRoomId); }
       catch (err) { showStatus('Failed to create room: ' + err.message, 'error'); }
@@ -102,19 +106,19 @@
     });
     joinBtn.addEventListener('click', () => {
       const code = roomInput.value.trim().toUpperCase();
-      if (code.length < 3) { showStatus('Enter a valid room code.', 'error'); return; }
-      hideStatus(); if (isSecureStaticPage) { showStatus('Opening game server…', 'info'); continueOnGameServer({ action: 'join', room: code }); return; }
+      if (code.length !== 8) { showStatus('Enter the 8-character room code.', 'error'); return; }
+      hideStatus(); if (shouldHandoffToGameServer) { showStatus('Opening game server…', 'info'); continueOnGameServer({ action: 'join', room: code }); return; }
       fetch(serverApi + '/api/rooms/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: code }) }).then(resp => { if (!resp.ok) return resp.json().then(d => { throw new Error(d.error); }); return resp.json(); }).then(data => { currentRoomId = data.roomId; connectAndJoin(currentRoomId); }).catch(err => showStatus(err.message, 'error'));
     });
     roomInput.addEventListener('input', () => { roomInput.value = roomInput.value.replace(/[^a-z0-9]/gi, '').toUpperCase(); });
     roomInput.addEventListener('keydown', event => { if (event.key === 'Enter') joinBtn.click(); });
-    function connectAndJoin(roomId) { showStatus('Connecting to the court…', 'info'); window.location.href = `/game.html?room=${roomId}`; }
+    function connectAndJoin(roomId) { const gameUrl = new URL('game.html', window.location.href); gameUrl.search = new URLSearchParams({ room: roomId }); showStatus('Connecting to the court…', 'info'); window.location.href = gameUrl.toString(); }
     document.getElementById('help-btn').addEventListener('click', () => helpDialog.showModal());
     document.getElementById('help-close').addEventListener('click', () => helpDialog.close());
     const startupParams = new URLSearchParams(window.location.search);
     const startupAction = startupParams.get('action');
     const startupRoom = startupParams.get('room');
-    if (!isSecureStaticPage) { if (startupAction === 'create') createBtn.click(); if (startupAction === 'join' && startupRoom) { roomInput.value = startupRoom; joinBtn.click(); } }
+    if (!shouldHandoffToGameServer) { if (startupAction === 'create') createBtn.click(); if (startupAction === 'join' && startupRoom) { roomInput.value = startupRoom; joinBtn.click(); } }
   </script>
 </body>
 </html>
