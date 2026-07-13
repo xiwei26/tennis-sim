@@ -28,6 +28,7 @@ class InputManager {
 
     this._charging = null;    // { type, startTime } while a hit key is held
     this._pendingHit = null;  // { type, power, expires } after release
+    this._pendingHitAnimation = null; // one-shot visual event consumed by GameApp
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onKeyUp = this._onKeyUp.bind(this);
@@ -41,6 +42,7 @@ class InputManager {
     this._move = { up: false, down: false, left: false, right: false };
     this._charging = null;
     this._pendingHit = null;
+    this._pendingHitAnimation = null;
   }
 
   /** Select the movement key profile assigned by the server for this client. */
@@ -78,6 +80,7 @@ class InputManager {
         const held = this._now() - this._charging.startTime;
         const power = Math.max(MIN_POWER, Math.min(1, held / MAX_CHARGE_MS));
         this._pendingHit = { type: hitType, power, expires: this._now() + PULSE_MS };
+        this._pendingHitAnimation = { type: hitType, power };
         this._charging = null;
       }
       return;
@@ -111,6 +114,18 @@ class InputManager {
       }
     }
     return keys;
+  }
+
+  /** Whether one of this player's movement keys is currently held. */
+  isMoving() {
+    return Object.values(this._move).some(Boolean);
+  }
+
+  /** Return the latest one-shot swing request exactly once. */
+  consumeHitAnimation() {
+    const hit = this._pendingHitAnimation;
+    this._pendingHitAnimation = null;
+    return hit;
   }
 
   /**

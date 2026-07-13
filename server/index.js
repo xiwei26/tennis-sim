@@ -91,6 +91,19 @@ wss.on('connection', (ws, req) => {
         }
       }
 
+      if (msg.type === 'player_action' && roomId && playerId) {
+        const room = roomManager.getRoom(roomId);
+        const hitTypes = new Set(['flat', 'topspin', 'slice', 'volley']);
+        if (room && msg.action === 'hit' && hitTypes.has(msg.hitType)) {
+          roomManager.broadcast(roomId, {
+            type: 'player_action',
+            playerId,
+            action: 'hit',
+            hitType: msg.hitType,
+          });
+        }
+      }
+
       if (msg.type === 'leave_room' && roomId) {
         roomManager.removePlayer(roomId, playerId);
         roomId = null; // prevent the close handler from removing again

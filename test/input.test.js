@@ -66,6 +66,19 @@ for (const file of inputFiles) {
     assert.equal(keys.power, 0.5);
   });
 
+  test(`${file} emits one visual swing event when a shot key is released`, () => {
+    const controls = createInputManager(file);
+    controls.input.setPlayerId('player1');
+    controls.keyDown('KeyK');
+    controls.setClock(600);
+    controls.keyUp('KeyK');
+
+    const hit = controls.input.consumeHitAnimation();
+    assert.equal(hit.type, 'topspin');
+    assert.equal(hit.power, 0.6);
+    assert.equal(controls.input.consumeHitAnimation(), null);
+  });
+
   test(`${file} clears movement and charge state on window blur`, () => {
     const controls = createInputManager(file);
     controls.input.setPlayerId('player1');

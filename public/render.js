@@ -19,6 +19,10 @@ class Renderer3D {
     // Scene
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x87CEEB);
+    this.clock = new THREE.Clock();
+    this.localPlayerId = null;
+    this._hitEuler = new THREE.Euler();
+    this._hitQuaternion = new THREE.Quaternion();
 
     // Camera — fixed oblique view
     const aspect = this.container.clientWidth / this.container.clientHeight;
@@ -423,12 +427,137 @@ class Renderer3D {
         const entry = this.players[id];
         entry.group.add(obj);
         entry.model = obj;
+        this._configurePlayerAnimations(entry, obj);
         // Hide the procedural body but keep the ground shadow.
         if (entry.body) entry.body.visible = false;
       },
       undefined,
       (err) => console.warn(`[render] Failed to load player model ${url}:`, err)
     );
+  }
+
+  /** Set up the warm-up and running clips embedded in the player FBX. */
+  _configurePlayerAnimations(entry, model) {
+    const clips = model.animations || [];
+    const warmupClip = clips.find((clip) => /warm|idle|ready/i.test(clip.name)) || clips[0];
+    const runClip = clips.find((clip) => /run|jog|sprint|move/i.test(clip.name));
+    if (!warmupClip) return;
+
+    const mixer = new THREE.AnimationMixer(model);
+    const warmup = mixer.clipAction(warmupClip);
+    const run = runClip ? mixer.clipAction(runClip) : null;
+    warmup.setLoop(THREE.LoopRepeat, Infinity);
+    if (run) run.setLoop(THREE.LoopRepeat, Infinity);
+    warmup.play();
+
+    entry.mixer = mixer;
+    entry.actions = { warmup, run };
+    entry.activeAction = warmup;
+    entry.isMoving = false;
+    this._bindHitBones(entry, model);
+    if (entry.pendingHitType) {
+      const pendingHitType = entry.pendingHitType;
+      entry.pendingHitType = null;
+      this.playHitForEntry(entry, pendingHitType);
+    }
+  }
+
+  /** Find the right-handed swing chain shared by the two Tripo rigs. */
+  _bindHitBones(entry, model) {
+    const byName = {};
+    model.traverse((node) => {
+      if (!node.isBone) return;
+      byName[node.name.toLowerCase().replace(/[^a-z0-9]/g, '')] = node;
+    });
+    entry.hitBones = {
+      spine: byName.spine02 || byName.spine01,
+      upperArm: byName.rupperarm,
+      forearm: byName.rforearm,
+      hand: byName.rhand,
+    };
+  }
+
+  /** Start a procedural one-shot swing over the current locomotion clip. */
+  playHit(id, hitType = 'flat') {
+    const entry = this.players[id];
+    if (!entry) return;
+    if (!entry.hitBones || !entry.hitBones.upperArm) {
+      entry.pendingHitType = hitType;
+      return;
+    }
+    this.playHitForEntry(entry, hitType);
+  }
+
+  playHitForEntry(entry, hitType) {
+    const durations = { flat: 0.62, topspin: 0.68, slice: 0.66, volley: 0.42 };
+    entry.hitAnimation = {
+      type: durations[hitType] ? hitType : 'flat',
+      elapsed: 0,
+      duration: durations[hitType] || durations.flat,
+    };
+  }
+
+  _easeInOut(value) {
+    const t = Math.max(0, Math.min(1, value));
+    return t * t * (3 - 2 * t);
+  }
+
+  _hitSwingProgress(progress) {
+    if (progress < 0.24) return -this._easeInOut(progress / 0.24);
+    if (progress < 0.54) return -1 + 2 * this._easeInOut((progress - 0.24) / 0.30);
+    return 1 - this._easeInOut((progress - 0.54) / 0.46);
+  }
+
+  _rotateHitBone(bone, x, y, z, amount) {
+    if (!bone) return;
+    this._hitEuler.set(x * amount, y * amount, z * amount, 'XYZ');
+    this._hitQuaternion.setFromEuler(this._hitEuler);
+    bone.quaternion.multiply(this._hitQuaternion);
+  }
+
+  _updateHitAnimation(entry, delta) {
+    const hit = entry.hitAnimation;
+    if (!hit || !entry.hitBones) return;
+    hit.elapsed += delta;
+    const progress = Math.min(1, hit.elapsed / hit.duration);
+    const swing = this._hitSwingProgress(progress);
+    const config = {
+      flat:    { spine: [0, 0.34, 0], upper: [-0.18, 0.70, -0.78], fore: [0.08, 0.34, -0.38], hand: [0, 0, 0.24] },
+      topspin: { spine: [-0.08, 0.34, 0], upper: [-0.42, 0.72, -0.72], fore: [0.28, 0.32, -0.34], hand: [0.20, 0, 0.28] },
+      slice:   { spine: [0.08, 0.30, 0], upper: [0.24, 0.66, -0.68], fore: [-0.18, 0.28, -0.30], hand: [-0.16, 0, 0.22] },
+      volley:  { spine: [0, 0.18, 0], upper: [-0.08, 0.38, -0.42], fore: [0.04, 0.18, -0.20], hand: [0, 0, 0.16] },
+    }[hit.type];
+
+    this._rotateHitBone(entry.hitBones.spine, ...config.spine, swing);
+    this._rotateHitBone(entry.hitBones.upperArm, ...config.upper, swing);
+    this._rotateHitBone(entry.hitBones.forearm, ...config.fore, swing);
+    this._rotateHitBone(entry.hitBones.hand, ...config.hand, swing);
+    if (progress >= 1) entry.hitAnimation = null;
+  }
+
+  /** Blend a player between the authored warm-up and running animations. */
+  setPlayerMoving(id, isMoving) {
+    const entry = this.players[id];
+    if (!entry || !entry.actions || entry.isMoving === isMoving) return;
+    const next = isMoving && entry.actions.run ? entry.actions.run : entry.actions.warmup;
+    if (!next || entry.activeAction === next) {
+      entry.isMoving = isMoving;
+      return;
+    }
+
+    const previous = entry.activeAction;
+    next.reset().play();
+    if (previous) previous.crossFadeTo(next, 0.16, true);
+    entry.activeAction = next;
+    entry.isMoving = isMoving;
+  }
+
+  updateAnimations() {
+    const delta = this.clock.getDelta();
+    Object.values(this.players).forEach((entry) => {
+      if (entry.mixer) entry.mixer.update(delta);
+      this._updateHitAnimation(entry, delta);
+    });
   }
 
   /**
@@ -551,6 +680,7 @@ class Renderer3D {
   }
 
   setLocalPlayer(playerId) {
+    this.localPlayerId = playerId;
     if (!this.playerLabels) return;
     const configs = {
       player1: { number: 1, controls: 'WASD + J/K/L/U' },
@@ -630,9 +760,22 @@ class Renderer3D {
     if (!state || !state.ball) return;
     this.ball.position.set(state.ball.x, state.ball.y, state.ball.z);
     this.ball.rotation.z = state.ball.rotation || 0;
-    if (state.player1) this.players.player1.group.position.set(state.player1.x, 0, state.player1.z);
-    if (state.player2) this.players.player2.group.position.set(state.player2.x, 0, state.player2.z);
+    this._updatePlayerFromState('player1', state.player1);
+    this._updatePlayerFromState('player2', state.player2);
     if (state.score) this.updateScore(state.score);
+  }
+
+  _updatePlayerFromState(id, playerState) {
+    if (!playerState) return;
+    const entry = this.players[id];
+    if (!entry) return;
+    const previous = entry.lastNetworkPosition;
+    entry.group.position.set(playerState.x, 0, playerState.z);
+    if (id !== this.localPlayerId && previous) {
+      const distance = Math.hypot(playerState.x - previous.x, playerState.z - previous.z);
+      this.setPlayerMoving(id, distance > 0.002);
+    }
+    entry.lastNetworkPosition = { x: playerState.x, z: playerState.z };
   }
 
   render() {
@@ -650,6 +793,9 @@ class Renderer3D {
   destroy() {
     clearTimeout(this._messageTimer);
     window.removeEventListener('resize', this._onResize);
+    Object.values(this.players).forEach((entry) => {
+      if (entry.mixer) entry.mixer.stopAllAction();
+    });
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);

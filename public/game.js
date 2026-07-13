@@ -10,12 +10,16 @@ class GameApp {
     this.playerId = null;
     this.running = false;
     this._animFrameId = null;
+    this._renderLoopStarted = false;
   }
 
   async start(serverUrl, roomId) {
     this.renderer = new Renderer3D('game-container');
     this.network = new NetworkClient();
     this.input = new InputManager();
+    // Keep the court and character warm-up animations visible while a player
+    // is waiting in a room; network input still starts only at game begin.
+    this._startRenderLoop();
 
     // Show connecting message
     this.renderer.showMessage('Connecting...', 5000);
@@ -49,12 +53,16 @@ class GameApp {
       this.running = true;
       // Start input loop
       this.network._startInputLoop(() => this.input.getKeys());
-      // Start render loop
-      this._startRenderLoop();
     });
 
     this.network.on('state', (msg) => {
       this.renderer.updateState(msg);
+    });
+
+    this.network.on('playerAction', (msg) => {
+      if (msg.playerId !== this.playerId && msg.action === 'hit') {
+        this.renderer.playHit(msg.playerId, msg.hitType);
+      }
     });
 
     this.network.on('point', (msg) => {
@@ -138,7 +146,18 @@ class GameApp {
   }
 
   _startRenderLoop() {
+    if (this._renderLoopStarted) return;
+    this._renderLoopStarted = true;
     const fullLoop = () => {
+      if (this.renderer.updateAnimations) this.renderer.updateAnimations();
+      if (this.input && this.playerId && this.renderer.setPlayerMoving) {
+        this.renderer.setPlayerMoving(this.playerId, this.input.isMoving());
+        const hit = this.input.consumeHitAnimation();
+        if (hit) {
+          this.renderer.playHit(this.playerId, hit.type);
+          this.network.sendPlayerAction('hit', { hitType: hit.type });
+        }
+      }
       // Reflect the local player's charge state on the charge bar.
       if (this.input && this.renderer.updateChargeBar) {
         this.renderer.updateChargeBar(this.input.getChargeState());
@@ -152,6 +171,7 @@ class GameApp {
 
   destroy() {
     this.running = false;
+    this._renderLoopStarted = false;
     if (this._animFrameId) cancelAnimationFrame(this._animFrameId);
     if (this.network) this.network.close();
     if (this.input) this.input.destroy();

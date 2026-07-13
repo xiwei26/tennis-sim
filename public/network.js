@@ -45,6 +45,10 @@ class NetworkClient {
     this.send({ type: 'input', keys });
   }
 
+  sendPlayerAction(action, data = {}) {
+    this.send({ type: 'player_action', action, ...data });
+  }
+
   on(event, callback) {
     this._callbacks[event] = callback;
   }
@@ -79,7 +83,7 @@ class NetworkClient {
       room_joined: 'roomJoined', game_start: 'gameStart', countdown: 'countdown',
       game_begin: 'gameBegin', state: 'state', point: 'point',
       match_over: 'matchOver', error: 'error', serve_ready: 'serveReady',
-      opponent_left: 'opponentLeft',
+      opponent_left: 'opponentLeft', player_action: 'playerAction',
     };
     const cb = this._callbacks[map[msg.type]];
     if (cb) cb(msg);
